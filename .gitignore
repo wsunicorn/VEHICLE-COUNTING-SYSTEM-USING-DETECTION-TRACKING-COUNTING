@@ -1,0 +1,163 @@
+# ============================================================
+# Python artifacts
+# ============================================================
+__pycache__/
+*.py[cod]
+*$py.class
+*.pyd
+*.pyo
+*.egg
+*.egg-info/
+dist/
+build/
+.eggs/
+.Python
+pip-log.txt
+pip-delete-this-directory.txt
+
+# ============================================================
+# Virtual environment
+# ============================================================
+venv/
+.venv/
+env/
+.env/
+ENV/
+env.bak/
+venv.bak/
+.python-version
+
+# ============================================================
+# Environment variables / secrets
+# ============================================================
+.env
+.env.*
+!.env.example
+*.secret
+secrets.json
+
+# ============================================================
+# Dataset — AIC21 videos & annotations (large files)
+# ============================================================
+dtc_counting/data/
+# If you want to include specific small config files, uncomment:
+# !dtc_counting/data/AIC21_Track1_Vehicle_Counting/ROIs/
+# !dtc_counting/data/AIC21_Track1_Vehicle_Counting/movement_description/
+
+# ============================================================
+# Generated outputs (CSVs, result videos, overlays)
+# ============================================================
+dtc_counting/outputs/
+# Keep the directory marker:
+!dtc_counting/outputs/.gitkeep
+
+# ============================================================
+# Raw video files (large — use Git LFS if needed)
+# ============================================================
+*.mp4
+*.avi
+*.mov
+*.mkv
+*.wmv
+*.flv
+*.webm
+
+# ============================================================
+# Model weights — KEEP by default (user choice)
+# sam_b.pt is excluded: 357MB, exceeds GitHub 100MB file limit
+# Download from: https://dl.fbaipublicfiles.com/segment_anything/sam_vit_b_01ec64.pth
+# ============================================================
+dtc_counting/sam_b.pt
+# To also exclude YOLO weights, uncomment:
+# *.pt
+# *.pth
+# *.weights
+# *.onnx
+
+# ============================================================
+# Django web demo
+# ============================================================
+dtc_counting/web_demo/db.sqlite3
+dtc_counting/web_demo/db.sqlite3-journal
+dtc_counting/web_demo/media/
+# Keep the directory marker:
+!dtc_counting/web_demo/media/.gitkeep
+
+# Django static files collected
+dtc_counting/web_demo/staticfiles/
+dtc_counting/web_demo/static_collected/
+
+# Django local settings override
+dtc_counting/web_demo/traffic_demo/local_settings.py
+
+# ============================================================
+# Jupyter notebooks checkpoints
+# ============================================================
+.ipynb_checkpoints/
+*.ipynb
+
+# ============================================================
+# OS artifacts
+# ============================================================
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+Icon?
+
+# Windows
+Thumbs.db
+Thumbs.db:encryptable
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+
+# Linux
+*~
+
+# ============================================================
+# IDE / Editor
+# ============================================================
+.vscode/
+!.vscode/settings.json
+!.vscode/extensions.json
+.idea/
+*.sublime-project
+*.sublime-workspace
+*.swp
+*.swo
+.spyderproject.cfg
+.ropeproject/
+
+# ============================================================
+# Logs & temporary files
+# ============================================================
+*.log
+*.tmp
+*.temp
+*.bak
+*.orig
+logs/
+log/
+
+# ============================================================
+# HuggingFace cache (downloaded models — large)
+# ============================================================
+# These are stored in ~/.cache/huggingface/ by default,
+# not in the project, so usually no need to gitignore.
+# If you cache locally:
+.cache/
+huggingface_cache/
+
+# ============================================================
+# OpenCV / image test outputs
+# ============================================================
+*.jpg
+*.jpeg
+*.png
+*.bmp
+*.tiff
+*.gif
+# Exception: keep images committed to the repo (e.g. docs/images/)
+!docs/
+!dtc_counting/image/README/

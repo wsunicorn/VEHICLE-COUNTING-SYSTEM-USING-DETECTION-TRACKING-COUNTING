@@ -1,0 +1,1164 @@
+<!DOCTYPE html>
+<html lang="vi" data-theme="light">
+<head>
+  {% load static %}
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>DTC — Đếm Xe Thủ Công</title>
+  <link rel="icon" type="image/svg+xml" href="{% static 'counter/favicon.svg' %}?v=2" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="{% static 'counter/style.css' %}" />
+</head>
+<body>
+  <div class="bg-shape bg-shape-1" aria-hidden="true"></div>
+  <div class="bg-shape bg-shape-2" aria-hidden="true"></div>
+
+  <header class="topbar">
+    <div class="topbar-inner">
+      <a class="topbar-brand" href="{% url 'dashboard' %}">
+        <div class="topbar-logo" aria-hidden="true">
+          <svg viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg">
+            <path d="M10 2a1 1 0 011 1v1.07A7.002 7.002 0 0117 11h1a1 1 0 010 2h-1a7.002 7.002 0 01-6 6.93V21a1 1 0 01-2 0v-1.07A7.002 7.002 0 013 13H2a1 1 0 010-2h1a7.002 7.002 0 016-6.93V3a1 1 0 011-1zm0 4a5 5 0 100 10A5 5 0 0010 6zm0 2a3 3 0 110 6 3 3 0 010-6z"/>
+          </svg>
+        </div>
+        <span class="topbar-title">DTC Vehicle Counting</span>
+      </a>
+      <div class="topbar-right">
+        <nav class="topbar-nav">
+          <a href="{% url 'manual' %}" class="nav-link nav-link--active">
+            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 013 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
+            Thủ Công
+          </a>
+          <a href="{% url 'auto' %}" class="nav-link">
+            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.07 4.93a10 10 0 010 14.14M4.93 4.93a10 10 0 000 14.14"/></svg>
+            Tự Động SAM
+          </a>
+          <a href="{% url 'history' %}" class="nav-link">
+            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+            Lịch Sử
+          </a>
+        </nav>
+        <button class="theme-toggle" id="themeToggle" aria-label="Chuyển giao diện sáng/tối">
+          <svg class="icon-moon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+          <svg class="icon-sun" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
+          <span id="themeLabel">Tối</span>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <main>
+    <div class="container">
+
+      <!-- Hero -->
+      <section class="hero card">
+        <div class="hero-body">
+          <p class="eyebrow">
+            <span class="dot-live" aria-hidden="true"></span>
+            <span class="page-badge page-badge--manual">Chế Độ Thủ Công</span>
+          </p>
+          <h1>Đếm Xe <span class="gradient-text">Thủ Công</span></h1>
+          <p class="hero-subtitle">
+            Cung cấp ROI và MOI từ <strong>file có sẵn</strong> hoặc <strong>vẽ trực tiếp</strong> lên frame video.
+            Hệ thống sẽ đếm xe theo đúng vùng và hướng bạn định nghĩa — không cần SAM.
+          </p>
+          <div class="hero-chips">
+            <span>Upload ROI/MOI File</span>
+            <span>Vẽ ROI/MOI Trên Canvas</span>
+            <span>YOLO Detection</span>
+            <span>Kalman Tracking</span>
+            <span>CSV Export</span>
+          </div>
+        </div>
+      </section>
+
+      <!-- Form -->
+      <section class="card">
+        <div class="section-head">
+          <h2>Cấu Hình Đếm Thủ Công</h2>
+          <p>Upload video, cung cấp ROI/MOI (file hoặc vẽ canvas), điều chỉnh tham số rồi nhấn <strong>Chạy</strong>.</p>
+        </div>
+
+        {% if run_error %}
+        <div class="alert-error" role="alert">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+          <span>{{ run_error }}</span>
+        </div>
+        {% endif %}
+
+        <form method="post" enctype="multipart/form-data" class="form-grid" id="manualForm">
+          {% csrf_token %}
+          {{ form.roi_json }}
+          {{ form.moi_json }}
+
+          <!-- FILE INPUTS -->
+          <div class="form-group-header">
+            <h3>File đầu vào</h3>
+            <div class="form-group-divider"></div>
+          </div>
+
+          <label class="field-wrap">
+            <span class="field-label">Video nguồn <span class="field-badge badge-required">bắt buộc</span></span>
+            {{ form.video_upload }}
+            <p class="field-hint">File video (.mp4, .avi…) cần đếm phương tiện.</p>
+            {% if form.video_upload.errors %}<small class="field-error">{{ form.video_upload.errors|striptags }}</small>{% endif %}
+          </label>
+
+          <div class="video-preview-card" id="previewThumbWrap" {% if not raw_video_url %}style="display:none"{% endif %}>
+            <div class="video-preview-screen" id="previewScreen">
+              <video id="uploadPreview" muted playsinline preload="none" class="video-preview-el" {% if raw_video_url %}src="{{ raw_video_url }}"{% endif %}></video>
+              <div class="video-preview-hover-overlay"><div class="video-preview-zoom-btn"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"/></svg></div></div>
+              <span class="video-preview-badge">Preview</span>
+            </div>
+            <div class="video-preview-footer">
+              <div class="video-preview-info">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="7" width="20" height="15" rx="2"/><polyline points="17 2 12 7 7 2"/></svg>
+                <span class="video-preview-name" id="previewFileName">{% if raw_video_url %}{{ raw_video_url|cut:"/media/"|truncatechars:50 }}{% else %}Chưa chọn file{% endif %}</span>
+              </div>
+              <span class="video-preview-sub">Click để phóng to</span>
+            </div>
+          </div>
+
+          <label class="field-wrap">
+            <span class="field-label">Model Weights <span class="field-badge badge-required">bắt buộc</span></span>
+            {{ form.weights_upload }}
+            <p class="field-hint">File trọng số YOLO (.pt), ví dụ <code>best.pt</code>.</p>
+            {% if form.weights_upload.errors %}<small class="field-error">{{ form.weights_upload.errors|striptags }}</small>{% endif %}
+          </label>
+
+          <label class="field-wrap">
+            <span class="field-label">Movement Description <span class="field-badge badge-optional">tuỳ chọn</span></span>
+            {{ form.movement_upload }}
+            <p class="field-hint">File mô tả hướng movement của camera (.txt). Quy định số lượng MOI.</p>
+            {% if form.movement_upload.errors %}<small class="field-error">{{ form.movement_upload.errors|striptags }}</small>{% endif %}
+          </label>
+
+          <!-- ROI + CANVAS SECTION -->
+          <div class="form-group-header" style="margin-top:8px;">
+            <h3>ROI — Vùng đếm</h3>
+            <div class="form-group-divider"></div>
+          </div>
+
+          <label class="field-wrap">
+            <span class="field-label">Upload ROI File (.txt) <span class="field-badge badge-optional">tuỳ chọn nếu vẽ</span></span>
+            {{ form.roi_upload }}
+            <p class="field-hint">Toạ độ đa giác mỗi dòng <code>x,y</code>. Nếu upload thì ưu tiên hơn vẽ canvas.</p>
+            {% if form.roi_upload.errors %}<small class="field-error">{{ form.roi_upload.errors|striptags }}</small>{% endif %}
+          </label>
+
+          <!-- MOI FILE UPLOAD -->
+          <label class="field-wrap">
+            <span class="field-label">Upload MOI Vectors (.txt) <span class="field-badge badge-optional">tuỳ chọn nếu vẽ</span></span>
+            {{ form.moi_upload }}
+            <p class="field-hint">Mỗi dòng: <code>id,x1,y1,x2,y2</code>. Bỏ trống để dùng hướng vẽ canvas hoặc fallback góc.</p>
+            {% if form.moi_upload.errors %}<small class="field-error">{{ form.moi_upload.errors|striptags }}</small>{% endif %}
+          </label>
+
+          <!-- CANVAS DRAWING SECTION -->
+          <div class="canvas-section" id="canvasSection" style="display:none;">
+            <div class="canvas-or-divider">HOẶC vẽ trực tiếp lên frame video</div>
+            <div class="canvas-toolbar">
+              <button type="button" class="canvas-extract-btn" id="extractFrameBtn">
+                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+                Trích Frame
+              </button>
+              <button type="button" class="mode-btn mode-btn--roi mode-btn--active" id="modeRoiBtn" style="display:none;">
+                <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polygon points="12 2 22 8.5 22 15.5 12 22 2 15.5 2 8.5 12 2"/></svg>
+                Vẽ ROI
+              </button>
+              <button type="button" class="mode-btn mode-btn--moi" id="modeMoiBtn" style="display:none;">
+                <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
+                Vẽ MOI
+              </button>
+              <button type="button" class="canvas-action-btn" id="undoBtn" style="display:none;" title="Hoàn tác điểm/mũi tên cuối">
+                <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 14 4 9 9 4"/><path d="M20 20v-7a4 4 0 0 0-4-4H4"/></svg>
+                Hoàn Tác
+              </button>
+              <button type="button" class="canvas-action-btn" id="clearAllBtn" style="display:none;" title="Xóa tất cả">
+                <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/></svg>
+                Xóa Tất Cả
+              </button>
+            </div>
+            <div class="canvas-wrap" id="canvasWrap" style="display:none;">
+              <canvas id="drawCanvas"></canvas>
+            </div>
+            <p class="canvas-hint" id="canvasHint" style="display:none;">
+              <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+              <span id="canvasHintText">Chế độ ROI: click để thêm điểm, click gần điểm đầu để đóng vùng.</span>
+            </p>
+            <div class="canvas-stats" id="canvasStats" style="display:none;">
+              <span class="stat-roi">ROI: <strong id="roiPointCount">0</strong> điểm <span id="roiClosedBadge" style="display:none;font-size:11px;padding:1px 7px;border-radius:99px;background:rgba(0,200,200,0.15);color:#009aa0;">(đã đóng)</span></span>
+              <span class="stat-moi">MOI: <strong id="moiCount">0</strong> mũi tên</span>
+            </div>
+
+            <!-- ── Live ROI/MOI video overlay ── -->
+            <div id="liveOverlayDivider" class="canvas-or-divider" style="display:none;margin-top:18px;">
+              <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2"/></svg>
+              Xem Trực Tiếp ROI / MOI Trên Video
+            </div>
+            <div id="liveOverlayWrap" style="position:relative;background:#0a0a0a;border-radius:var(--radius-sm);overflow:hidden;display:none;">
+              <video id="overlayVideo" controls playsinline style="display:block;width:100%;height:auto;"></video>
+              <canvas id="overlayCanvas" style="position:absolute;top:0;left:0;pointer-events:none;"></canvas>
+            </div>
+            <p class="canvas-hint" id="overlayHint" style="display:none;margin-top:6px;">
+              <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+              <span>ROI (lam) và MOI (cam) vẽ chồng lên video theo thời gian thực — phát/tua video để kiểm tra vị trí vùng đếm.</span>
+            </p>
+          </div>
+
+          <!-- PARAMS -->
+          <div class="form-group-header" style="margin-top:8px;">
+            <h3>Tham số chính</h3>
+            <div class="form-group-divider"></div>
+          </div>
+
+          <label class="field-wrap">
+            <span class="field-label">Video Clip ID</span>
+            {{ form.video_clip_id }}
+            <p class="field-hint">ID định danh phiên chạy trong CSV kết quả.</p>
+          </label>
+
+          <label class="field-wrap">
+            <span class="field-label">Confidence (conf)</span>
+            {{ form.conf }}
+            <p class="field-hint">Ngưỡng lọc YOLO. 0.25–0.45 phù hợp giao thông đô thị.</p>
+          </label>
+
+          <label class="field-wrap">
+            <span class="field-label">Image size (imgsz)</span>
+            {{ form.imgsz }}
+            <p class="field-hint">960 chất lượng tốt, 640 nhanh hơn.</p>
+          </label>
+
+          <label class="field-wrap">
+            <span class="field-label">Frame Stride</span>
+            {{ form.frame_stride }}
+            <p class="field-hint">1 = mọi frame (chính xác nhất), 2–4 = nhanh hơn.</p>
+          </label>
+
+          <div class="form-group-header" style="margin-top:8px;">
+            <h3>Tuỳ chọn chạy</h3>
+            <div class="form-group-divider"></div>
+          </div>
+
+          <label class="checkbox-wrap">
+            {{ form.quick_preview }}
+            <div class="checkbox-text">
+              <span class="field-label">Quick Preview</span>
+              <p class="field-hint">Chỉ xử lý một đoạn video ngắn để xem nhanh kết quả.</p>
+            </div>
+          </label>
+
+          <label class="field-wrap">
+            <span class="field-label">Số frame tối đa</span>
+            {{ form.max_frames }}
+            <p class="field-hint">Giới hạn frame khi bật Quick Preview.</p>
+            {% if form.max_frames.errors %}<small class="field-error">{{ form.max_frames.errors|striptags }}</small>{% endif %}
+          </label>
+
+          <label class="checkbox-wrap">
+            {{ form.save_video }}
+            <div class="checkbox-text">
+              <span class="field-label">Lưu video visualize</span>
+              <p class="field-hint">Tạo video kết quả có ROI và nhãn đếm. Tắt để tăng tốc.</p>
+            </div>
+          </label>
+
+          <button type="submit" class="run-btn" id="runBtn">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="btn-icon"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+            <span class="btn-label">Chạy Đếm Xe</span>
+          </button>
+
+          {% if pending_run_id %}
+          <div class="progress-inline-card" id="progressCard">
+            <div class="progress-inline-head">
+              <h3 id="progressTitle">Đang xử lý…</h3>
+              <p id="progressSubtitle">Pipeline đang chạy trong nền — trang tự cập nhật kết quả khi hoàn thành.</p>
+            </div>
+            <div class="progress-steps" id="progressSteps"></div>
+            <div class="progress-bar-wrap">
+              <div class="progress-bar-track">
+                <div class="progress-bar-fill" id="progressBarFill" style="width:0%"></div>
+              </div>
+              <span class="progress-bar-label" id="progressBarLabel">0%</span>
+            </div>
+            <div class="log-console" id="logConsole" aria-live="polite"><p class="log-placeholder">Đang chờ log từ server…</p></div>
+            <div class="alert-error" id="progressError" style="display:none;" role="alert">
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+              <span id="progressErrorMsg"></span>
+            </div>
+            <div class="progress-done-section" id="progressDoneSection">
+              <div class="progress-done-check"><svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg></div>
+              <div class="progress-done-text"><strong>Xử lý hoàn tất!</strong><span>Kết quả đang tải…</span></div>
+              <a class="progress-done-link" id="progressResultLink" href="#">Xem Kết Quả <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg></a>
+            </div>
+          </div>
+          {% endif %}
+        </form>
+      </section>
+
+      <!-- Results -->
+      {% if run_id %}
+      <section class="card" id="resultsSection">
+        <div class="section-head">
+          <h2>Kết Quả Chạy</h2>
+          <div class="run-meta">
+            <span class="run-badge">ID: <strong>{{ run_id }}</strong></span>
+            {% if run_mode %}<span class="run-badge">Chế độ: <strong>{{ run_mode }}</strong></span>{% endif %}
+          </div>
+        </div>
+        <div class="links">
+          <a class="link-pill" href="{{ csv_url }}" download>
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+            Tải CSV Kết Quả
+          </a>
+        </div>
+        {% if uploaded_files %}
+        <h3 class="subheading">File đã sử dụng</h3>
+        <div class="upload-meta">
+          <p><strong>Video:</strong> {{ uploaded_files.video }}</p>
+          <p><strong>Weights:</strong> {{ uploaded_files.weights }}</p>
+          <p><strong>ROI:</strong> {{ uploaded_files.roi }}</p>
+          <p><strong>Movement:</strong> {{ uploaded_files.movement }}</p>
+          <p><strong>MOI:</strong> {{ uploaded_files.moi }}</p>
+        </div>
+        {% endif %}
+        {% if summary %}
+        <h3 class="subheading">Tổng quan đếm</h3>
+        <div class="summary-grid">
+          {% for key, value in summary.items %}
+          <article class="summary-card"><p class="summary-key">{{ key }}</p><p class="summary-value">{{ value }}</p></article>
+          {% endfor %}
+        </div>
+        {% endif %}
+        {% if video_url %}
+        <h3 class="subheading">Video Kết Quả</h3>
+        <div class="video-player-wrap">
+          <div class="video-loading-overlay" id="resultVideoLoader"><div class="video-spinner"></div></div>
+          <video id="resultVideo" controls playsinline preload="metadata">
+            <source src="{{ video_url }}" type="video/mp4" />
+            Trình duyệt không hỗ trợ phát video này.
+          </video>
+        </div>
+        {% if video_download_url %}
+        <div class="links"><a class="link-pill" href="{{ video_download_url }}" download>
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+          Tải Video
+        </a></div>
+        {% endif %}
+        {% elif video_warning %}
+        <div class="warning" role="alert">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+          <span>{{ video_warning }}</span>
+        </div>
+        {% endif %}
+        {% if summary %}
+        <h3 class="subheading">Chi tiết (movement × class)</h3>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Movement–Class Key</th><th>Số lượng xe</th></tr></thead>
+            <tbody>{% for key, value in summary.items %}<tr><td>{{ key }}</td><td><strong>{{ value }}</strong></td></tr>{% endfor %}</tbody>
+          </table>
+        </div>
+        {% endif %}
+      </section>
+      {% endif %}
+
+    </div>
+  </main>
+
+  <dialog id="previewDialog" class="video-lightbox-dialog">
+    <button type="button" id="closePreviewDialog" class="dialog-close" aria-label="Đóng">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+    </button>
+    <video id="previewDialogVideo" controls playsinline></video>
+  </dialog>
+
+  <script>
+  const DTC_CONFIG = {
+    pendingRunId: '{{ pending_run_id|default:"" }}',
+    statusUrl: '{% url "run_status" run_id="__RUN_ID__" %}'.replace('__RUN_ID__', '{{ pending_run_id|default:"" }}'),
+    resultUrl: '{% url "run_result" run_id="__RUN_ID__" %}'.replace('__RUN_ID__', '{{ pending_run_id|default:"" }}'),
+    rawVideoUrl: '{{ raw_video_url|default:"" }}',
+  };
+  </script>
+
+  <script>
+  (function () {
+    'use strict';
+
+    /* ── Theme ── */
+    const HTML = document.documentElement;
+    const themeToggle = document.getElementById('themeToggle');
+    const themeLabel  = document.getElementById('themeLabel');
+    const PREF_KEY = 'dtc-theme';
+    function applyTheme(t) {
+      HTML.setAttribute('data-theme', t);
+      if (themeLabel) themeLabel.textContent = t === 'dark' ? 'Sáng' : 'Tối';
+      try { localStorage.setItem(PREF_KEY, t); } catch(_) {}
+    }
+    try {
+      const s = localStorage.getItem(PREF_KEY);
+      if (s === 'dark' || s === 'light') applyTheme(s);
+      else if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) applyTheme('dark');
+    } catch(_) {}
+    if (themeToggle) themeToggle.addEventListener('click', () =>
+      applyTheme((HTML.getAttribute('data-theme') || 'light') === 'dark' ? 'light' : 'dark'));
+
+    /* ── Video preview + lightbox ── */
+    const videoInput    = document.querySelector('input[name="video_upload"]');
+    const preview       = document.getElementById('uploadPreview');
+    const thumbWrap     = document.getElementById('previewThumbWrap');
+    const previewScreen = document.getElementById('previewScreen');
+    const fileNameEl    = document.getElementById('previewFileName');
+    const previewDialog = document.getElementById('previewDialog');
+    const dialogVideo   = document.getElementById('previewDialogVideo');
+    const closeDialogBtn = document.getElementById('closePreviewDialog');
+
+    function openLightbox() {
+      if (!previewDialog || !dialogVideo) return;
+      const src = (preview && preview.src) ? preview.src : DTC_CONFIG.rawVideoUrl;
+      if (!src) return;
+      dialogVideo.src = src; dialogVideo.load(); previewDialog.showModal();
+    }
+    function showThumb(url, name) {
+      if (!preview || !thumbWrap) return;
+      preview.src = url; preview.load(); thumbWrap.style.display = 'flex';
+      if (fileNameEl && name) fileNameEl.textContent = name;
+    }
+    if (DTC_CONFIG.rawVideoUrl && thumbWrap) thumbWrap.style.display = 'flex';
+
+    if (videoInput) {
+      videoInput.addEventListener('change', function () {
+        // Clear saved canvas state: user picked a new video, old drawings no longer apply
+        try { sessionStorage.removeItem('dtc_canvas_state'); } catch (_) {}
+        const file = this.files && this.files[0];
+        if (!file) {
+          thumbWrap && (thumbWrap.style.display = 'none');
+          if (preview && preview._objectUrl) URL.revokeObjectURL(preview._objectUrl);
+          if (preview) { preview.removeAttribute('src'); preview.load(); }
+          document.getElementById('canvasSection').style.display = 'none';
+          return;
+        }
+        if (preview && preview._objectUrl) URL.revokeObjectURL(preview._objectUrl);
+        const url = URL.createObjectURL(file);
+        if (preview) preview._objectUrl = url;
+        showThumb(url, file.name);
+        // Show canvas section
+        document.getElementById('canvasSection').style.display = 'block';
+      });
+    }
+    if (preview) preview.addEventListener('click', openLightbox);
+    if (previewScreen) previewScreen.addEventListener('click', openLightbox);
+    if (closeDialogBtn && previewDialog) {
+      closeDialogBtn.addEventListener('click', () => { previewDialog.close(); if (dialogVideo) dialogVideo.pause(); });
+      previewDialog.addEventListener('click', e => { if (e.target === previewDialog) { previewDialog.close(); if (dialogVideo) dialogVideo.pause(); } });
+    }
+
+    /* ── Result video loader ── */
+    const resultVideo  = document.getElementById('resultVideo');
+    const resultLoader = document.getElementById('resultVideoLoader');
+    if (resultVideo && resultLoader) {
+      resultVideo.addEventListener('waiting', () => resultLoader.classList.add('visible'));
+      resultVideo.addEventListener('canplay', () => resultLoader.classList.remove('visible'));
+      resultVideo.addEventListener('error',   () => resultLoader.classList.remove('visible'));
+    }
+
+    /* ── Quick Preview sync ── */
+    const quickCb = document.querySelector('input[name="quick_preview"]');
+    const maxFramesInput = document.querySelector('input[name="max_frames"]');
+    function syncMaxFrames() {
+      if (!quickCb || !maxFramesInput) return;
+      const wrap = maxFramesInput.closest('.field-wrap');
+      if (wrap) wrap.style.opacity = quickCb.checked ? '1' : '0.45';
+      maxFramesInput.disabled = !quickCb.checked;
+    }
+    if (quickCb) { quickCb.addEventListener('change', syncMaxFrames); syncMaxFrames(); }
+
+    /* ── Form submit ── */
+    const manualForm = document.getElementById('manualForm');
+    const runBtn = document.getElementById('runBtn');
+    if (manualForm) manualForm.action = (manualForm.action || window.location.pathname) + '#progressCard';
+    if (manualForm && runBtn) {
+      manualForm.addEventListener('submit', () => {
+        serializeCanvas();
+        runBtn.disabled = true;
+        const lbl = runBtn.querySelector('.btn-label');
+        if (lbl) lbl.textContent = 'Đang gửi…';
+      });
+    }
+
+    /* ═══════════════════════════════════════════════════════════════
+       CANVAS DRAWING
+    ══════════════════════════════════════════════════════════════ */
+    const extractBtn  = document.getElementById('extractFrameBtn');
+    const modeRoiBtn  = document.getElementById('modeRoiBtn');
+    const modeMoiBtn  = document.getElementById('modeMoiBtn');
+    const undoBtn     = document.getElementById('undoBtn');
+    const clearAllBtn = document.getElementById('clearAllBtn');
+    const canvasWrap  = document.getElementById('canvasWrap');
+    const drawCanvas  = document.getElementById('drawCanvas');
+    const canvasHint  = document.getElementById('canvasHint');
+    const canvasHintText = document.getElementById('canvasHintText');
+    const canvasStats = document.getElementById('canvasStats');
+    const roiPointCountEl = document.getElementById('roiPointCount');
+    const roiClosedBadge  = document.getElementById('roiClosedBadge');
+    const moiCountEl      = document.getElementById('moiCount');
+    const ctx = drawCanvas ? drawCanvas.getContext('2d') : null;
+
+    let bgImg = null;
+    let natW = 0, natH = 0;
+    let scaleX = 1, scaleY = 1;
+    let drawMode = 'roi';
+    let roiPoints = [];   // [{cx, cy}] canvas coords
+    let moiVectors = [];  // [{cx1,cy1,cx2,cy2,cpx,cpy}] — cpx/cpy = quadratic bezier control point
+    let roiClosed = false;
+    let isDragging = false;
+    let dragStart = null;
+    let dragHandle = null; // {type:'cp', index:n} — currently dragging a MOI control point
+    let history = [];
+    let afterRedrawHook = null; // called at end of every redraw()
+
+    function pushHistory() {
+      history.push({
+        roi: roiPoints.map(p => ({...p})),
+        moi: moiVectors.map(v => ({...v})),
+        closed: roiClosed,
+      });
+      if (history.length > 50) history.shift();
+    }
+
+    function extractFrame(file) {
+      return new Promise((resolve, reject) => {
+        const vid = document.createElement('video');
+        const url = URL.createObjectURL(file);
+        vid.src = url; vid.muted = true; vid.preload = 'metadata';
+        vid.addEventListener('loadedmetadata', () => {
+          vid.currentTime = Math.min(0.5, vid.duration * 0.02);
+        });
+        vid.addEventListener('seeked', () => {
+          const tmp = document.createElement('canvas');
+          tmp.width = vid.videoWidth; tmp.height = vid.videoHeight;
+          tmp.getContext('2d').drawImage(vid, 0, 0);
+          natW = vid.videoWidth; natH = vid.videoHeight;
+          URL.revokeObjectURL(url);
+          const img = new Image();
+          img.src = tmp.toDataURL('image/jpeg', 0.85);
+          img.onload = () => resolve(img);
+          img.onerror = reject;
+        });
+        vid.addEventListener('error', reject);
+        vid.load();
+      });
+    }
+
+    function extractFrameFromUrl(url) {
+      return new Promise((resolve, reject) => {
+        const vid = document.createElement('video');
+        vid.src = url; vid.muted = true; vid.preload = 'metadata';
+        vid.addEventListener('loadedmetadata', () => {
+          vid.currentTime = Math.min(0.5, vid.duration * 0.02);
+        });
+        vid.addEventListener('seeked', () => {
+          const tmp = document.createElement('canvas');
+          tmp.width = vid.videoWidth; tmp.height = vid.videoHeight;
+          tmp.getContext('2d').drawImage(vid, 0, 0);
+          natW = vid.videoWidth; natH = vid.videoHeight;
+          const img = new Image();
+          img.src = tmp.toDataURL('image/jpeg', 0.85);
+          img.onload = () => resolve(img);
+          img.onerror = reject;
+        });
+        vid.addEventListener('error', reject);
+        vid.load();
+      });
+    }
+
+    function setupCanvas(img) {
+      bgImg = img;
+      const maxW = canvasWrap.clientWidth || 900;
+      const scale = Math.min(1, (maxW - 4) / natW);
+      drawCanvas.width  = Math.round(natW * scale);
+      drawCanvas.height = Math.round(natH * scale);
+      scaleX = natW / drawCanvas.width;
+      scaleY = natH / drawCanvas.height;
+      canvasWrap.style.display = 'block';
+      [modeRoiBtn, modeMoiBtn, undoBtn, clearAllBtn].forEach(b => { if(b) b.style.display = 'inline-flex'; });
+      canvasHint.style.display = 'flex';
+      canvasStats.style.display = 'flex';
+      redraw();
+    }
+
+    function getPos(e) {
+      const rect = drawCanvas.getBoundingClientRect();
+      const src = e.touches ? e.touches[0] : e;
+      return {
+        cx: (src.clientX - rect.left) * (drawCanvas.width  / rect.width),
+        cy: (src.clientY - rect.top)  * (drawCanvas.height / rect.height),
+      };
+    }
+
+    function nearFirst(pos) {
+      if (roiPoints.length < 3) return false;
+      const p = roiPoints[0];
+      return Math.hypot(pos.cx - p.cx, pos.cy - p.cy) < 14;
+    }
+
+    function redraw(tempEnd) {
+      if (!ctx) return;
+      ctx.clearRect(0, 0, drawCanvas.width, drawCanvas.height);
+      if (bgImg) ctx.drawImage(bgImg, 0, 0, drawCanvas.width, drawCanvas.height);
+
+      /* ROI polygon */
+      if (roiPoints.length > 0) {
+        ctx.beginPath();
+        ctx.moveTo(roiPoints[0].cx, roiPoints[0].cy);
+        for (let i = 1; i < roiPoints.length; i++) ctx.lineTo(roiPoints[i].cx, roiPoints[i].cy);
+        if (roiClosed) {
+          ctx.closePath();
+          ctx.fillStyle = 'rgba(0,229,255,0.10)';
+          ctx.fill();
+        }
+        ctx.strokeStyle = '#00e5ff'; ctx.lineWidth = 2; ctx.setLineDash([]); ctx.stroke();
+        roiPoints.forEach((p, i) => {
+          const isFirst = i === 0;
+          ctx.beginPath();
+          ctx.arc(p.cx, p.cy, isFirst ? 7 : 5, 0, Math.PI * 2);
+          ctx.fillStyle = isFirst ? '#00ffcc' : '#00e5ff'; ctx.fill();
+        });
+        /* Hint ring around first point when close enough */
+        if (!roiClosed && drawMode === 'roi' && roiPoints.length >= 3) {
+          ctx.beginPath();
+          ctx.arc(roiPoints[0].cx, roiPoints[0].cy, 14, 0, Math.PI * 2);
+          ctx.strokeStyle = 'rgba(0,255,200,0.35)'; ctx.lineWidth = 1;
+          ctx.setLineDash([3, 3]); ctx.stroke(); ctx.setLineDash([]);
+        }
+      }
+
+      /* MOI arrows (quadratic bezier) */
+      moiVectors.forEach((v, i) => drawArrow(ctx, v.cx1, v.cy1, v.cx2, v.cy2, v.cpx, v.cpy, `M${i+1}`, false));
+
+      /* Control point handles (circles at the bezier control point, only shown in MOI mode) */
+      if (drawMode === 'moi') {
+        moiVectors.forEach(v => {
+          ctx.beginPath();
+          ctx.arc(v.cpx, v.cpy, 7, 0, Math.PI * 2);
+          ctx.fillStyle = 'rgba(255,255,255,0.85)';
+          ctx.fill();
+          ctx.strokeStyle = '#ff8c00';
+          ctx.lineWidth = 1.5;
+          ctx.stroke();
+          ctx.beginPath();
+          ctx.arc(v.cpx, v.cpy, 2.5, 0, Math.PI * 2);
+          ctx.fillStyle = '#ff8c00';
+          ctx.fill();
+        });
+      }
+
+      /* In-progress drag arrow */
+      if (drawMode === 'moi' && isDragging && dragStart && tempEnd) {
+        const midX = (dragStart.cx + tempEnd.cx) / 2;
+        const midY = (dragStart.cy + tempEnd.cy) / 2;
+        drawArrow(ctx, dragStart.cx, dragStart.cy, tempEnd.cx, tempEnd.cy, midX, midY, `M${moiVectors.length+1}`, true);
+      }
+
+      updateStats();
+      if (afterRedrawHook) afterRedrawHook();
+    }
+
+    function drawArrow(ctx, x1, y1, x2, y2, cpx, cpy, label, isTemp) {
+      const len = Math.hypot(x2 - x1, y2 - y1);
+      if (len < 3) return;
+      /* quadratic bezier curve */
+      ctx.beginPath();
+      ctx.moveTo(x1, y1);
+      ctx.quadraticCurveTo(cpx, cpy, x2, y2);
+      ctx.strokeStyle = isTemp ? 'rgba(255,200,80,0.7)' : '#ff8c00';
+      ctx.lineWidth = 2;
+      ctx.setLineDash(isTemp ? [4, 3] : []);
+      ctx.stroke();
+      ctx.setLineDash([]);
+      /* arrowhead: tangent at t=1 for quadratic bezier is direction (x2-cpx, y2-cpy) */
+      const ang = Math.atan2(y2 - cpy, x2 - cpx);
+      const hl = Math.min(16, len * 0.25);
+      ctx.beginPath();
+      ctx.moveTo(x2, y2);
+      ctx.lineTo(x2 - hl * Math.cos(ang - Math.PI / 6), y2 - hl * Math.sin(ang - Math.PI / 6));
+      ctx.moveTo(x2, y2);
+      ctx.lineTo(x2 - hl * Math.cos(ang + Math.PI / 6), y2 - hl * Math.sin(ang + Math.PI / 6));
+      ctx.strokeStyle = isTemp ? 'rgba(255,200,80,0.7)' : '#ff8c00';
+      ctx.lineWidth = 2;
+      ctx.stroke();
+      /* label */
+      ctx.font = 'bold 13px sans-serif';
+      ctx.lineWidth = 3; ctx.strokeStyle = 'rgba(0,0,0,0.65)';
+      ctx.strokeText(label, x1 + 4, y1 - 6);
+      ctx.fillStyle = '#ffe066';
+      ctx.fillText(label, x1 + 4, y1 - 6);
+      ctx.lineWidth = 1;
+    }
+
+    function updateStats() {
+      if (roiPointCountEl) roiPointCountEl.textContent = roiPoints.length;
+      if (roiClosedBadge) roiClosedBadge.style.display = roiClosed ? 'inline' : 'none';
+      if (moiCountEl) moiCountEl.textContent = moiVectors.length;
+    }
+
+    function setMode(m) {
+      drawMode = m;
+      if (modeRoiBtn) { modeRoiBtn.classList.toggle('mode-btn--active', m === 'roi'); }
+      if (modeMoiBtn) { modeMoiBtn.classList.toggle('mode-btn--active', m === 'moi'); }
+      if (canvasWrap) { canvasWrap.classList.toggle('canvas-wrap--roi', m === 'roi'); canvasWrap.classList.toggle('canvas-wrap--moi', m === 'moi'); }
+      if (canvasHintText) {
+        canvasHintText.textContent = m === 'roi'
+          ? 'Chế độ ROI: click để thêm điểm, click gần điểm đầu tiên (vòng tròn xanh) để đóng vùng.'
+          : 'Chế độ MOI: kéo chuột để vẽ mũi tên, sau đó kéo điểm ○ trắng ở giữa để uốn cong đường.';
+      }
+    }
+
+    function serializeCanvas() {
+      const roiInput = document.getElementById('id_roi_json');
+      const moiInput = document.getElementById('id_moi_json');
+      const roiNat = roiClosed
+        ? roiPoints.map(p => [Math.round(p.cx * scaleX), Math.round(p.cy * scaleY)])
+        : [];
+      const moiNat = moiVectors.map((v, i) => ({
+        id: i + 1,
+        x1: Math.round(v.cx1 * scaleX), y1: Math.round(v.cy1 * scaleY),
+        x2: Math.round(v.cx2 * scaleX), y2: Math.round(v.cy2 * scaleY),
+      }));
+      if (roiInput) roiInput.value = roiNat.length ? JSON.stringify(roiNat) : '';
+      if (moiInput) moiInput.value = moiNat.length ? JSON.stringify(moiNat) : '';
+      // Persist drawing state so canvas can be restored after form submit / page reload
+      if (natW > 0) {
+        try {
+          sessionStorage.setItem('dtc_canvas_state', JSON.stringify({
+            roi: roiNat, moi: moiNat, closed: roiClosed, natW, natH,
+          }));
+        } catch (_) {}
+      }
+    }
+
+    /* Events */
+    if (extractBtn) {
+      extractBtn.addEventListener('click', () => {
+        const file = videoInput && videoInput.files && videoInput.files[0];
+        if (!file) { alert('Vui lòng chọn file video trước.'); return; }
+        extractBtn.disabled = true;
+        extractBtn.textContent = 'Đang trích frame…';
+        extractFrame(file).then(img => {
+          setupCanvas(img);
+          setMode('roi');
+          extractBtn.textContent = 'Trích lại Frame';
+          extractBtn.disabled = false;
+        }).catch(() => {
+          alert('Không trích được frame từ video này.');
+          extractBtn.textContent = 'Trích Frame';
+          extractBtn.disabled = false;
+        });
+      });
+    }
+
+    if (modeRoiBtn) modeRoiBtn.addEventListener('click', () => setMode('roi'));
+    if (modeMoiBtn) modeMoiBtn.addEventListener('click', () => setMode('moi'));
+
+    if (undoBtn) {
+      undoBtn.addEventListener('click', () => {
+        if (history.length === 0) return;
+        const state = history.pop();
+        roiPoints  = state.roi;
+        moiVectors = state.moi;
+        roiClosed  = state.closed;
+        redraw();
+      });
+    }
+
+    if (clearAllBtn) {
+      clearAllBtn.addEventListener('click', () => {
+        pushHistory();
+        roiPoints = []; moiVectors = []; roiClosed = false;
+        redraw();
+      });
+    }
+
+    if (drawCanvas) {
+      drawCanvas.addEventListener('mousedown', e => {
+        if (e.button !== 0) return;
+        const pos = getPos(e);
+        if (drawMode === 'roi') {
+          if (roiClosed) return;
+          pushHistory();
+          if (nearFirst(pos)) { roiClosed = true; redraw(); return; }
+          roiPoints.push(pos);
+          redraw();
+        } else {
+          /* Check if clicking on a control point handle (drag to curve) */
+          for (let i = 0; i < moiVectors.length; i++) {
+            const v = moiVectors[i];
+            if (Math.hypot(pos.cx - v.cpx, pos.cy - v.cpy) < 12) {
+              pushHistory();
+              dragHandle = { type: 'cp', index: i };
+              return;
+            }
+          }
+          isDragging = true; dragStart = pos;
+        }
+      });
+
+      drawCanvas.addEventListener('mousemove', e => {
+        const pos = getPos(e);
+        if (dragHandle) {
+          if (dragHandle.type === 'cp') {
+            moiVectors[dragHandle.index].cpx = pos.cx;
+            moiVectors[dragHandle.index].cpy = pos.cy;
+            redraw();
+          }
+          return;
+        }
+        if (drawMode === 'moi' && isDragging) redraw(pos);
+      });
+
+      drawCanvas.addEventListener('mouseup', e => {
+        if (dragHandle) { dragHandle = null; redraw(); return; }
+        if (drawMode === 'moi' && isDragging) {
+          const pos = getPos(e);
+          if (dragStart && Math.hypot(pos.cx - dragStart.cx, pos.cy - dragStart.cy) > 10) {
+            pushHistory();
+            moiVectors.push({
+              cx1: dragStart.cx, cy1: dragStart.cy,
+              cx2: pos.cx,       cy2: pos.cy,
+              cpx: (dragStart.cx + pos.cx) / 2,
+              cpy: (dragStart.cy + pos.cy) / 2,
+            });
+          }
+          isDragging = false; dragStart = null; redraw();
+        }
+      });
+
+      drawCanvas.addEventListener('mouseleave', () => {
+        if (dragHandle) { dragHandle = null; redraw(); return; }
+        if (isDragging) { isDragging = false; dragStart = null; redraw(); }
+      });
+    }
+
+    /* ═══════════════════════════════════════════════════════════════
+       LIVE VIDEO OVERLAY  (ROI + MOI drawn on the playing video)
+    ══════════════════════════════════════════════════════════════ */
+    const overlayVideo  = document.getElementById('overlayVideo');
+    const overlayCanvas = document.getElementById('overlayCanvas');
+    const overlayCtx    = overlayCanvas ? overlayCanvas.getContext('2d') : null;
+    const liveOverlayDivider = document.getElementById('liveOverlayDivider');
+    const liveOverlayWrap    = document.getElementById('liveOverlayWrap');
+    const overlayHintEl      = document.getElementById('overlayHint');
+
+    let liveRoiNatural = [];  // [[x,y]] natural-pixel coords
+    let liveMoiNatural = [];  // [{x1,y1,x2,y2,cpx,cpy}] natural-pixel coords
+    let overlayRafId   = null;
+
+    function drawOverlayFrame() {
+      if (!overlayCtx || !overlayCanvas || !overlayVideo || !overlayVideo.videoWidth) return;
+      const dW = overlayVideo.clientWidth, dH = overlayVideo.clientHeight;
+      if (!dW || !dH) return;
+      if (overlayCanvas.width !== dW || overlayCanvas.height !== dH) {
+        overlayCanvas.width = dW; overlayCanvas.height = dH;
+      }
+      /* width:100%; height:auto → scale = dW / videoWidth, no letterbox */
+      const sx = dW / overlayVideo.videoWidth;
+      const sy = dH / overlayVideo.videoHeight;
+      overlayCtx.clearRect(0, 0, dW, dH);
+
+      /* ROI polygon */
+      if (liveRoiNatural.length >= 3) {
+        overlayCtx.beginPath();
+        overlayCtx.moveTo(liveRoiNatural[0][0] * sx, liveRoiNatural[0][1] * sy);
+        for (let i = 1; i < liveRoiNatural.length; i++)
+          overlayCtx.lineTo(liveRoiNatural[i][0] * sx, liveRoiNatural[i][1] * sy);
+        overlayCtx.closePath();
+        overlayCtx.fillStyle   = 'rgba(0,229,255,0.12)';
+        overlayCtx.fill();
+        overlayCtx.strokeStyle = '#00e5ff';
+        overlayCtx.lineWidth   = 2.5;
+        overlayCtx.setLineDash([]);
+        overlayCtx.stroke();
+      }
+
+      /* MOI arrows (quadratic bezier) */
+      liveMoiNatural.forEach((v, i) => {
+        const ax1 = v.x1 * sx, ay1 = v.y1 * sy;
+        const ax2 = v.x2 * sx, ay2 = v.y2 * sy;
+        const acpx = v.cpx * sx, acpy = v.cpy * sy;
+        const len = Math.hypot(ax2 - ax1, ay2 - ay1);
+        if (len < 3) return;
+        overlayCtx.beginPath();
+        overlayCtx.moveTo(ax1, ay1);
+        overlayCtx.quadraticCurveTo(acpx, acpy, ax2, ay2);
+        overlayCtx.strokeStyle = '#ff8c00'; overlayCtx.lineWidth = 2.5;
+        overlayCtx.setLineDash([]); overlayCtx.stroke();
+        const ang = Math.atan2(ay2 - acpy, ax2 - acpx);
+        const hl  = Math.min(18, len * 0.28);
+        overlayCtx.beginPath();
+        overlayCtx.moveTo(ax2, ay2);
+        overlayCtx.lineTo(ax2 - hl * Math.cos(ang - Math.PI / 6), ay2 - hl * Math.sin(ang - Math.PI / 6));
+        overlayCtx.moveTo(ax2, ay2);
+        overlayCtx.lineTo(ax2 - hl * Math.cos(ang + Math.PI / 6), ay2 - hl * Math.sin(ang + Math.PI / 6));
+        overlayCtx.strokeStyle = '#ff8c00'; overlayCtx.lineWidth = 2.5; overlayCtx.stroke();
+        overlayCtx.font = 'bold 14px sans-serif';
+        overlayCtx.lineWidth = 3; overlayCtx.strokeStyle = 'rgba(0,0,0,0.7)';
+        overlayCtx.strokeText(`M${i + 1}`, ax1 + 5, ay1 - 7);
+        overlayCtx.fillStyle = '#ffe066';
+        overlayCtx.fillText(`M${i + 1}`, ax1 + 5, ay1 - 7);
+        overlayCtx.lineWidth = 1;
+      });
+    }
+
+    function startOverlayAnimation() {
+      if (overlayRafId) cancelAnimationFrame(overlayRafId);
+      function tick() { drawOverlayFrame(); overlayRafId = requestAnimationFrame(tick); }
+      overlayRafId = requestAnimationFrame(tick);
+    }
+    function stopOverlayAnimation() {
+      if (overlayRafId) { cancelAnimationFrame(overlayRafId); overlayRafId = null; }
+      drawOverlayFrame();
+    }
+
+    function syncOverlayVideoSrc(file) {
+      if (!overlayVideo) return;
+      if (overlayVideo._objUrl) { URL.revokeObjectURL(overlayVideo._objUrl); overlayVideo._objUrl = null; }
+      if (file) {
+        const url = URL.createObjectURL(file);
+        overlayVideo._objUrl = url; overlayVideo.src = url;
+      } else if (DTC_CONFIG.rawVideoUrl) {
+        overlayVideo.src = DTC_CONFIG.rawVideoUrl;
+      } else {
+        overlayVideo.removeAttribute('src');
+      }
+      overlayVideo.load();
+    }
+
+    function checkShowOverlay() {
+      const show = liveRoiNatural.length >= 3 && !!(overlayVideo && overlayVideo.src);
+      if (liveOverlayDivider) liveOverlayDivider.style.display = show ? 'flex'  : 'none';
+      if (liveOverlayWrap)    liveOverlayWrap.style.display    = show ? 'block' : 'none';
+      if (overlayHintEl)      overlayHintEl.style.display      = show ? 'flex'  : 'none';
+      if (show) setTimeout(drawOverlayFrame, 60);
+    }
+
+    function updateLiveNaturalFromCanvas() {
+      liveRoiNatural = roiClosed
+        ? roiPoints.map(p => [Math.round(p.cx * scaleX), Math.round(p.cy * scaleY)])
+        : [];
+      liveMoiNatural = moiVectors.map(v => ({
+        x1:  Math.round(v.cx1 * scaleX), y1:  Math.round(v.cy1 * scaleY),
+        x2:  Math.round(v.cx2 * scaleX), y2:  Math.round(v.cy2 * scaleY),
+        cpx: Math.round(v.cpx * scaleX), cpy: Math.round(v.cpy * scaleY),
+      }));
+      checkShowOverlay();
+    }
+    afterRedrawHook = updateLiveNaturalFromCanvas;
+
+    function parseRoiTxt(text) {
+      return text.trim().split('\n').reduce((acc, line) => {
+        const p = line.trim().split(',');
+        if (p.length >= 2) { const x = +p[0], y = +p[1]; if (!isNaN(x) && !isNaN(y)) acc.push([x, y]); }
+        return acc;
+      }, []);
+    }
+    function parseMoiTxt(text) {
+      return text.trim().split('\n').reduce((acc, line) => {
+        const p = line.trim().split(',');
+        if (p.length >= 5) {
+          const x1=+p[1], y1=+p[2], x2=+p[3], y2=+p[4];
+          if (!isNaN(x1)) acc.push({ x1, y1, x2, y2, cpx:(x1+x2)/2, cpy:(y1+y2)/2 });
+        }
+        return acc;
+      }, []);
+    }
+
+    const roiUploadInput = document.querySelector('input[name="roi_upload"]');
+    const moiUploadInput = document.querySelector('input[name="moi_upload"]');
+
+    if (roiUploadInput) {
+      roiUploadInput.addEventListener('change', function () {
+        const file = this.files && this.files[0];
+        if (!file) { liveRoiNatural = []; checkShowOverlay(); return; }
+        const r = new FileReader();
+        r.onload = e => { liveRoiNatural = parseRoiTxt(e.target.result); checkShowOverlay(); };
+        r.readAsText(file);
+      });
+    }
+    if (moiUploadInput) {
+      moiUploadInput.addEventListener('change', function () {
+        const file = this.files && this.files[0];
+        if (!file) { liveMoiNatural = []; drawOverlayFrame(); return; }
+        const r = new FileReader();
+        r.onload = e => { liveMoiNatural = parseMoiTxt(e.target.result); drawOverlayFrame(); };
+        r.readAsText(file);
+      });
+    }
+
+    /* Sync overlay video src when video file changes */
+    if (videoInput) {
+      videoInput.addEventListener('change', function () {
+        syncOverlayVideoSrc(this.files && this.files[0]);
+        checkShowOverlay();
+      });
+    }
+
+    /* Also detect video dimensions from the main preview on loadedmetadata */
+    if (preview) {
+      preview.addEventListener('loadedmetadata', () => {
+        if (!natW) { natW = preview.videoWidth; natH = preview.videoHeight; }
+      });
+    }
+
+    if (overlayVideo) {
+      overlayVideo.addEventListener('play',           startOverlayAnimation);
+      overlayVideo.addEventListener('pause',          stopOverlayAnimation);
+      overlayVideo.addEventListener('ended',          stopOverlayAnimation);
+      overlayVideo.addEventListener('seeked',         drawOverlayFrame);
+      overlayVideo.addEventListener('loadedmetadata', () => {
+        if (!natW) { natW = overlayVideo.videoWidth; natH = overlayVideo.videoHeight; }
+        drawOverlayFrame();
+      });
+    }
+
+    /* On page load: if rawVideoUrl exists, show canvas section, set overlay src, and restore saved drawings */
+    if (DTC_CONFIG.rawVideoUrl) {
+      const cs = document.getElementById('canvasSection');
+      if (cs) cs.style.display = 'block';
+      syncOverlayVideoSrc(null);
+
+      // Restore canvas drawings saved before form submit
+      try {
+        const saved = sessionStorage.getItem('dtc_canvas_state');
+        if (saved && drawCanvas) {
+          const st = JSON.parse(saved);
+          if (st.natW > 0) {
+            natW = st.natW; natH = st.natH;
+            extractFrameFromUrl(DTC_CONFIG.rawVideoUrl).then(img => {
+              setupCanvas(img);
+              // Map natural coords back to canvas coords
+              if (st.roi && st.roi.length >= 3) {
+                roiPoints = st.roi.map(([nx, ny]) => ({
+                  cx: nx / scaleX, cy: ny / scaleY,
+                }));
+                roiClosed = !!st.closed;
+              }
+              if (st.moi && st.moi.length) {
+                moiVectors = st.moi.map(v => ({
+                  cx1: v.x1 / scaleX, cy1: v.y1 / scaleY,
+                  cx2: v.x2 / scaleX, cy2: v.y2 / scaleY,
+                  cpx: (v.x1 + v.x2) / (2 * scaleX),
+                  cpy: (v.y1 + v.y2) / (2 * scaleY),
+                }));
+              }
+              setMode(st.moi && st.moi.length ? 'moi' : 'roi');
+              redraw();
+            }).catch(() => { /* frame extraction from server URL failed silently */ });
+          }
+        }
+      } catch (_) {}
+    }
+
+    /* ═══════════════════════════════════════════════════════════════
+       PROGRESS POLLING
+    ══════════════════════════════════════════════════════════════ */
+    if (!DTC_CONFIG.pendingRunId) return;
+
+    const stepsEl    = document.getElementById('progressSteps');
+    const barFill    = document.getElementById('progressBarFill');
+    const barLabel   = document.getElementById('progressBarLabel');
+    const logConsole = document.getElementById('logConsole');
+    const errEl      = document.getElementById('progressError');
+    const errMsg     = document.getElementById('progressErrorMsg');
+
+    const STEP_ICON = {
+      done:    '<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="4 10 8 14 16 6"/></svg>',
+      running: '<div class="step-spinner"></div>',
+      pending: '<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2"><circle cx="10" cy="10" r="7"/></svg>',
+      error:   '<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="5" y1="5" x2="15" y2="15"/><line x1="15" y1="5" x2="5" y2="15"/></svg>',
+    };
+
+    function renderSteps(steps) {
+      if (!stepsEl) return;
+      stepsEl.innerHTML = steps.map(s => `<div class="progress-step progress-step--${s.state}"><span class="step-icon">${STEP_ICON[s.state]||STEP_ICON.pending}</span><span class="step-label">${s.label}</span></div>`).join('');
+    }
+
+    let lastLogCount = 0;
+    function renderLogs(logs) {
+      if (!logConsole || logs.length === lastLogCount) return;
+      lastLogCount = logs.length;
+      logConsole.innerHTML = logs.map(l => `<div class="log-line">${l.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')}</div>`).join('');
+      logConsole.scrollTop = logConsole.scrollHeight;
+    }
+
+    function updateBar(pct) {
+      const p = Math.min(100, Math.max(0, pct));
+      if (barFill) barFill.style.width = p + '%';
+      if (barLabel) barLabel.textContent = Math.round(p) + '%';
+    }
+
+    function showError(msg) {
+      if (errEl) errEl.style.display = 'flex';
+      if (errMsg) errMsg.textContent = msg;
+    }
+
+    function markDone() {
+      const card = document.getElementById('progressCard');
+      const title = document.getElementById('progressTitle');
+      const subtitle = document.getElementById('progressSubtitle');
+      const doneSection = document.getElementById('progressDoneSection');
+      const resultLink  = document.getElementById('progressResultLink');
+      if (card) card.classList.add('is-done');
+      if (title) title.textContent = '✓ Xử lý hoàn tất!';
+      if (subtitle) subtitle.textContent = 'Pipeline chạy thành công. Kết quả đang được tải…';
+      if (barFill) barFill.classList.add('is-done');
+      if (barLabel) barLabel.classList.add('is-done');
+      if (doneSection) doneSection.style.display = 'flex';
+      if (resultLink) resultLink.href = DTC_CONFIG.resultUrl;
+    }
+
+    function fetchResult() {
+      fetch(DTC_CONFIG.resultUrl)
+        .then(r => r.text())
+        .then(html => {
+          const doc = new DOMParser().parseFromString(html, 'text/html');
+          const sec = doc.getElementById('resultsSection');
+          if (!sec) { window.location.href = DTC_CONFIG.resultUrl; return; }
+          const old = document.getElementById('resultsSection');
+          if (old) old.remove();
+          const container = document.querySelector('.container');
+          if (container) {
+            container.appendChild(sec);
+            sec.style.opacity = '0'; sec.style.transform = 'translateY(14px)';
+            sec.style.transition = 'opacity .45s ease, transform .45s ease';
+            requestAnimationFrame(() => requestAnimationFrame(() => {
+              sec.style.opacity = '1'; sec.style.transform = 'translateY(0)';
+              sec.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            }));
+          }
+          history.pushState({}, '', DTC_CONFIG.resultUrl);
+        })
+        .catch(() => { window.location.href = DTC_CONFIG.resultUrl; });
+    }
+
+    let pollTimer;
+    function poll() {
+      fetch(DTC_CONFIG.statusUrl).then(r => r.json()).then(data => {
+        if (data.status === 'not_found') { showError('Không tìm thấy phiên chạy. Server có thể đã restart.'); return; }
+        renderSteps(data.steps || []);
+        renderLogs(data.logs || []);
+        updateBar(data.progress_pct || 0);
+        if (data.status === 'error') { showError(data.error || 'Lỗi không xác định'); return; }
+        if (data.status === 'done')  { updateBar(100); markDone(); setTimeout(fetchResult, 900); return; }
+        pollTimer = setTimeout(poll, 1200);
+      }).catch(() => { pollTimer = setTimeout(poll, 2500); });
+    }
+    poll();
+
+  }());
+  </script>
+</body>
+</html>

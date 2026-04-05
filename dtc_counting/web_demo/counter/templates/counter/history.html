@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html lang="vi" data-theme="light">
+<head>
+  {% load static %}
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>DTC — Lịch Sử Chạy Demo</title>
+  <link rel="icon" type="image/svg+xml" href="{% static 'counter/favicon.svg' %}?v=2" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="{% static 'counter/style.css' %}" />
+  <style>
+    .history-empty {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 12px;
+      padding: 60px 24px;
+      color: var(--muted);
+      text-align: center;
+    }
+    .history-empty svg { opacity: .35; }
+    .history-empty p { font-size: 15px; }
+
+    .run-mode-badge {
+      display: inline-block;
+      padding: 2px 9px;
+      border-radius: 99px;
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: .03em;
+      background: color-mix(in srgb, var(--brand) 12%, transparent);
+      color: var(--brand);
+      border: 1px solid color-mix(in srgb, var(--brand) 25%, transparent);
+    }
+    .run-mode-badge--manual {
+      background: rgba(0,200,200,.10);
+      color: #009aa0;
+      border-color: rgba(0,200,200,.25);
+    }
+    [data-theme="dark"] .run-mode-badge--manual { color: #00d5d8; }
+
+    .run-link {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      padding: 5px 14px;
+      border-radius: 8px;
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--brand);
+      background: color-mix(in srgb, var(--brand) 8%, transparent);
+      border: 1px solid color-mix(in srgb, var(--brand) 20%, transparent);
+      text-decoration: none;
+      white-space: nowrap;
+      transition: background var(--transition), border-color var(--transition);
+    }
+    .run-link:hover {
+      background: color-mix(in srgb, var(--brand) 15%, transparent);
+      border-color: color-mix(in srgb, var(--brand) 40%, transparent);
+    }
+
+    .ts-cell { white-space: nowrap; color: var(--muted); font-size: 13px; }
+    .vid-cell { font-size: 13px; max-width: 220px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  </style>
+</head>
+<body>
+  <div class="bg-shape bg-shape-1" aria-hidden="true"></div>
+  <div class="bg-shape bg-shape-2" aria-hidden="true"></div>
+
+  <header class="topbar">
+    <div class="topbar-inner">
+      <a class="topbar-brand" href="{% url 'dashboard' %}">
+        <div class="topbar-logo" aria-hidden="true">
+          <svg viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg">
+            <path d="M10 2a1 1 0 011 1v1.07A7.002 7.002 0 0117 11h1a1 1 0 010 2h-1a7.002 7.002 0 01-6 6.93V21a1 1 0 01-2 0v-1.07A7.002 7.002 0 013 13H2a1 1 0 010-2h1a7.002 7.002 0 016-6.93V3a1 1 0 011-1zm0 4a5 5 0 100 10A5 5 0 0010 6zm0 2a3 3 0 110 6 3 3 0 010-6z"/>
+          </svg>
+        </div>
+        <span class="topbar-title">DTC Vehicle Counting</span>
+      </a>
+      <div class="topbar-right">
+        <nav class="topbar-nav">
+          <a href="{% url 'manual' %}" class="nav-link">
+            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 013 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
+            Thủ Công
+          </a>
+          <a href="{% url 'auto' %}" class="nav-link">
+            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.07 4.93a10 10 0 010 14.14M4.93 4.93a10 10 0 000 14.14"/></svg>
+            Tự Động SAM
+          </a>
+          <a href="{% url 'history' %}" class="nav-link nav-link--active">
+            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+            Lịch Sử
+          </a>
+        </nav>
+        <button class="theme-toggle" id="themeToggle" aria-label="Chuyển giao diện sáng/tối">
+          <svg class="icon-moon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+          <svg class="icon-sun" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
+          <span id="themeLabel">Tối</span>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <main>
+    <div class="container">
+
+      <!-- Hero -->
+      <section class="hero card">
+        <div class="hero-body">
+          <p class="eyebrow">
+            <span class="dot-live" aria-hidden="true"></span>
+            <span class="page-badge" style="background:rgba(120,80,200,.08);color:#7c50c8;border:1px solid rgba(120,80,200,.25);">Lịch Sử</span>
+          </p>
+          <h1>Lịch Sử Chạy <span class="gradient-text">Demo</span></h1>
+          <p class="hero-subtitle">
+            Tất cả phiên demo đã hoàn thành — nhấn <strong>Xem Kết Quả</strong> để mở lại bất kỳ lúc nào,
+            kể cả sau khi khởi động lại server.
+          </p>
+        </div>
+      </section>
+
+      <!-- Run list -->
+      <section class="card">
+        <div class="section-head">
+          <h2>Các Phiên Đã Chạy</h2>
+          <p>{{ runs|length }} phiên được lưu trữ.</p>
+        </div>
+
+        {% if runs %}
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Thời gian</th>
+                <th>Video</th>
+                <th>Chế độ</th>
+                <th>Kiểu chạy</th>
+                <th>Run ID</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for run in runs %}
+              <tr>
+                <td class="ts-cell">
+                  {% if run.timestamp != run.run_id %}
+                    {{ run.timestamp|slice:":19"|cut:"T" }}
+                  {% else %}
+                    {{ run.run_id }}
+                  {% endif %}
+                </td>
+                <td class="vid-cell" title="{{ run.video_name }}">{{ run.video_name|default:"—" }}</td>
+                <td>
+                  {% if run.mode == "auto" %}
+                    <span class="run-mode-badge">Tự Động SAM</span>
+                  {% else %}
+                    <span class="run-mode-badge run-mode-badge--manual">Thủ Công</span>
+                  {% endif %}
+                </td>
+                <td><span style="font-size:13px;color:var(--muted);">{{ run.run_mode }}</span></td>
+                <td><code style="font-size:12px;color:var(--muted);">{{ run.run_id }}</code></td>
+                <td>
+                  <a href="{% url 'run_result' run_id=run.run_id %}" class="run-link">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+                    Xem Kết Quả
+                  </a>
+                </td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+        {% else %}
+        <div class="history-empty">
+          <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+          <p>Chưa có phiên chạy nào được lưu.</p>
+          <p style="font-size:13px;">Hãy chạy thử một demo từ trang <a href="{% url 'manual' %}" style="color:var(--brand);">Thủ Công</a> hoặc <a href="{% url 'auto' %}" style="color:var(--brand);">Tự Động SAM</a>.</p>
+        </div>
+        {% endif %}
+      </section>
+
+    </div>
+  </main>
+
+  <script>
+  (function () {
+    'use strict';
+    const HTML = document.documentElement;
+    const themeToggle = document.getElementById('themeToggle');
+    const themeLabel  = document.getElementById('themeLabel');
+    const PREF_KEY = 'dtc-theme';
+    function applyTheme(t) {
+      HTML.setAttribute('data-theme', t);
+      if (themeLabel) themeLabel.textContent = t === 'dark' ? 'Sáng' : 'Tối';
+      try { localStorage.setItem(PREF_KEY, t); } catch(_) {}
+    }
+    try {
+      const s = localStorage.getItem(PREF_KEY);
+      if (s === 'dark' || s === 'light') applyTheme(s);
+      else if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) applyTheme('dark');
+    } catch(_) {}
+    if (themeToggle) themeToggle.addEventListener('click', () =>
+      applyTheme((HTML.getAttribute('data-theme') || 'light') === 'dark' ? 'light' : 'dark'));
+  }());
+  </script>
+</body>
+</html>

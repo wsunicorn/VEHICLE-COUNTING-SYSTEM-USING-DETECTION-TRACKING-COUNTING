@@ -1,0 +1,712 @@
+﻿<!DOCTYPE html>
+<html lang="vi" data-theme="light">
+<head>
+  {% load static %}
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>DTC Vehicle Counting — Dashboard</title>
+  <link rel="icon" type="image/svg+xml" href="{% static 'counter/favicon.svg' %}?v=2" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="{% static 'counter/style.css' %}" />
+  <style>
+    /* ── Landing-page–specific styles ── */
+
+    .landing-hero {
+      text-align: center;
+      padding: 56px 32px 40px;
+    }
+
+    .landing-hero h1 {
+      font-size: clamp(2rem, 5vw, 3.2rem);
+      font-weight: 800;
+      line-height: 1.15;
+      margin: 12px 0 16px;
+    }
+
+    .landing-hero .hero-subtitle {
+      max-width: 680px;
+      margin: 0 auto 28px;
+      font-size: 1.05rem;
+      color: var(--muted);
+      line-height: 1.7;
+    }
+
+    .landing-cta-row {
+      display: flex;
+      gap: 14px;
+      justify-content: center;
+      flex-wrap: wrap;
+      margin-top: 28px;
+    }
+
+    .cta-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 9px;
+      padding: 13px 28px;
+      border-radius: var(--radius-sm);
+      font-family: inherit;
+      font-size: 15px;
+      font-weight: 700;
+      text-decoration: none;
+      transition: all var(--transition);
+      cursor: pointer;
+    }
+
+    .cta-btn--primary {
+      background: var(--brand);
+      color: #fff;
+      border: none;
+      box-shadow: 0 4px 18px rgba(14,107,168,0.28);
+    }
+    .cta-btn--primary:hover { background: var(--brand-dk); box-shadow: 0 6px 24px rgba(14,107,168,0.38); transform: translateY(-1px); }
+
+    .cta-btn--secondary {
+      background: transparent;
+      color: var(--brand-2);
+      border: 2px solid var(--brand-2);
+    }
+    .cta-btn--secondary:hover { background: rgba(24,154,94,0.08); transform: translateY(-1px); }
+
+    /* Mode cards row */
+    .mode-cards {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 22px;
+    }
+
+    @media (max-width: 700px) {
+      .mode-cards { grid-template-columns: 1fr; }
+    }
+
+    .mode-card {
+      border-radius: var(--radius);
+      background: var(--card);
+      border: 1px solid var(--line);
+      padding: 28px 26px 24px;
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+      transition: box-shadow var(--transition), transform var(--transition), border-color var(--transition);
+      backdrop-filter: blur(12px);
+    }
+
+    .mode-card:hover {
+      box-shadow: var(--shadow-lg);
+      transform: translateY(-3px);
+    }
+
+    .mode-card--manual { border-top: 4px solid #00c8c8; }
+    .mode-card--auto   { border-top: 4px solid var(--brand); }
+
+    .mode-card-icon {
+      width: 46px;
+      height: 46px;
+      border-radius: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+    }
+
+    .mode-card--manual .mode-card-icon { background: rgba(0,200,200,0.12); color: #009aa0; }
+    .mode-card--auto   .mode-card-icon { background: rgba(14,107,168,0.12); color: var(--brand); }
+    [data-theme="dark"] .mode-card--manual .mode-card-icon { color: #00d5d8; }
+
+    .mode-card-head {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .mode-card h3 {
+      margin: 0;
+      font-size: 1.15rem;
+      font-weight: 700;
+    }
+
+    .mode-card p {
+      margin: 0;
+      color: var(--muted);
+      font-size: 14px;
+      line-height: 1.65;
+    }
+
+    .mode-card-features {
+      list-style: none;
+      margin: 0;
+      padding: 0;
+      display: flex;
+      flex-direction: column;
+      gap: 7px;
+    }
+
+    .mode-card-features li {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 13.5px;
+      color: var(--ink-2);
+    }
+
+    .mode-card-features li svg { flex-shrink: 0; color: var(--brand-2); }
+    [data-theme="dark"] .mode-card--manual .mode-card-features li svg { color: #00d5d8; }
+
+    .mode-card-link {
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      padding: 9px 20px;
+      border-radius: var(--radius-sm);
+      font-size: 14px;
+      font-weight: 700;
+      text-decoration: none;
+      border: 1.5px solid;
+      transition: all var(--transition);
+      align-self: flex-start;
+      margin-top: auto;
+    }
+
+    .mode-card--manual .mode-card-link { color: #009aa0; border-color: #00c8c8; }
+    .mode-card--manual .mode-card-link:hover { background: rgba(0,200,200,0.10); }
+    [data-theme="dark"] .mode-card--manual .mode-card-link { color: #00d5d8; }
+
+    .mode-card--auto .mode-card-link { color: var(--brand); border-color: var(--brand); }
+    .mode-card--auto .mode-card-link:hover { background: rgba(14,107,168,0.08); }
+
+    /* Architecture section */
+    .arch-section { margin-top: 0; }
+
+    .arch-section-title {
+      font-size: 1.4rem;
+      font-weight: 800;
+      margin: 0 0 6px;
+    }
+
+    .arch-section-sub {
+      color: var(--muted);
+      font-size: 14px;
+      margin: 0 0 24px;
+    }
+
+    .arch-panels {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 22px;
+    }
+
+    @media (max-width: 700px) {
+      .arch-panels { grid-template-columns: 1fr; }
+    }
+
+    .arch-panel {
+      border-radius: var(--radius-sm);
+      border: 1.5px dashed var(--line);
+      overflow: hidden;
+      background: rgba(0,0,0,0.02);
+      transition: border-color var(--transition);
+    }
+
+    [data-theme="dark"] .arch-panel { background: rgba(255,255,255,0.02); }
+
+    .arch-panel:hover { border-color: var(--muted); }
+
+    .arch-panel-label {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 10px 14px;
+      font-size: 12.5px;
+      font-weight: 700;
+      color: var(--muted);
+      border-bottom: 1px solid var(--line);
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+    }
+
+    .arch-panel-label--manual { color: #009aa0; }
+    .arch-panel-label--auto   { color: var(--brand); }
+    [data-theme="dark"] .arch-panel-label--manual { color: #00d5d8; }
+
+    .arch-img-slot {
+      width: 100%;
+      min-height: 220px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-direction: column;
+      gap: 10px;
+      padding: 24px;
+      color: var(--muted);
+      font-size: 13px;
+      text-align: center;
+    }
+
+    .arch-img-slot img {
+      max-width: 100%;
+      height: auto;
+      border-radius: 6px;
+      display: block;
+    }
+
+    .arch-placeholder {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .arch-placeholder-icon {
+      width: 56px;
+      height: 56px;
+      border-radius: 14px;
+      background: var(--line);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--muted);
+    }
+
+    .arch-placeholder p {
+      margin: 0;
+      font-size: 13px;
+      color: var(--muted);
+    }
+
+    .arch-placeholder small {
+      display: block;
+      font-size: 11.5px;
+      color: var(--muted);
+      opacity: 0.7;
+      margin-top: 2px;
+    }
+
+    /* Tech stack chips */
+    .tech-grid {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+    }
+
+    .tech-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      padding: 7px 14px;
+      border-radius: 999px;
+      font-size: 13px;
+      font-weight: 600;
+      background: rgba(14,107,168,0.07);
+      color: var(--brand);
+      border: 1px solid rgba(14,107,168,0.18);
+    }
+
+    [data-theme="dark"] .tech-chip {
+      background: rgba(61,169,224,0.10);
+      border-color: rgba(61,169,224,0.22);
+    }
+
+    /* Stats row */
+    .stats-row {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 14px;
+    }
+
+    @media (max-width: 600px) {
+      .stats-row { grid-template-columns: repeat(2, 1fr); }
+    }
+
+    .stat-box {
+      border-radius: var(--radius-sm);
+      border: 1px solid var(--line);
+      padding: 18px 16px;
+      text-align: center;
+      background: var(--card);
+      backdrop-filter: blur(8px);
+    }
+
+    .stat-box-value {
+      font-size: 1.8rem;
+      font-weight: 800;
+      color: var(--brand);
+      line-height: 1;
+      margin-bottom: 4px;
+    }
+
+    .stat-box-label {
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+
+    /* Pipeline flow */
+    .pipeline-flow {
+      display: flex;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 0;
+      margin-top: 4px;
+    }
+
+    .pipeline-step {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 14px;
+      border-radius: var(--radius-sm);
+      background: var(--card);
+      border: 1px solid var(--line);
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--ink-2);
+      white-space: nowrap;
+    }
+
+    .pipeline-step svg { color: var(--brand); }
+
+    .pipeline-arrow {
+      padding: 0 6px;
+      color: var(--muted);
+      font-size: 18px;
+      flex-shrink: 0;
+    }
+
+    @media (max-width: 600px) {
+      .pipeline-flow { flex-direction: column; align-items: flex-start; }
+      .pipeline-arrow { transform: rotate(90deg); }
+    }
+
+    .section-label {
+      font-size: 11.5px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--muted);
+      margin-bottom: 14px;
+    }
+  </style>
+</head>
+<body>
+  <div class="bg-shape bg-shape-1" aria-hidden="true"></div>
+  <div class="bg-shape bg-shape-2" aria-hidden="true"></div>
+
+  <!-- ── Topbar ── -->
+  <header class="topbar">
+    <div class="topbar-inner">
+      <a class="topbar-brand" href="{% url 'dashboard' %}">
+        <div class="topbar-logo" aria-hidden="true">
+          <svg viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg">
+            <path d="M10 2a1 1 0 011 1v1.07A7.002 7.002 0 0117 11h1a1 1 0 010 2h-1a7.002 7.002 0 01-6 6.93V21a1 1 0 01-2 0v-1.07A7.002 7.002 0 013 13H2a1 1 0 010-2h1a7.002 7.002 0 016-6.93V3a1 1 0 011-1zm0 4a5 5 0 100 10A5 5 0 0010 6zm0 2a3 3 0 110 6 3 3 0 010-6z"/>
+          </svg>
+        </div>
+        <span class="topbar-title">DTC Vehicle Counting</span>
+      </a>
+      <div class="topbar-right">
+        <nav class="topbar-nav">
+          <a href="{% url 'manual' %}" class="nav-link">
+            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 013 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
+            Thủ Công
+          </a>
+          <a href="{% url 'auto' %}" class="nav-link">
+            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.07 4.93a10 10 0 010 14.14M4.93 4.93a10 10 0 000 14.14"/></svg>
+            Tự Động SAM
+          </a>
+          <a href="{% url 'history' %}" class="nav-link">
+            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+            Lịch Sử
+          </a>
+        </nav>
+        <button class="theme-toggle" id="themeToggle" aria-label="Chuyển giao diện sáng/tối">
+          <svg class="icon-moon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+          <svg class="icon-sun" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
+          <span id="themeLabel">Tối</span>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <main>
+    <div class="container">
+
+      <!-- ── Hero ── -->
+      <section class="card landing-hero">
+        <p class="eyebrow">
+          <span class="dot-live" aria-hidden="true"></span>
+          Intelligent Traffic Analysis System
+        </p>
+        <h1>DTC <span class="gradient-text">Vehicle Counting</span><br>Dashboard</h1>
+        <p class="hero-subtitle">
+          Hệ thống đếm và phân loại phương tiện thời gian thực sử dụng
+          <strong>YOLO</strong>, <strong>Bộ lọc Kalman</strong>, <strong>Hungarian Algorithm</strong>
+          và vùng quan sát thông minh <strong>ROI/MOI</strong>.
+          Hai chế độ vận hành: thủ công với dữ liệu có sẵn, hoặc hoàn toàn tự động bằng SAM.
+        </p>
+        <div class="landing-cta-row">
+          <a href="{% url 'manual' %}" class="cta-btn cta-btn--primary">
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 013 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
+            Bắt Đầu Thủ Công
+          </a>
+          <a href="{% url 'auto' %}" class="cta-btn cta-btn--secondary">
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.07 4.93a10 10 0 010 14.14M4.93 4.93a10 10 0 000 14.14"/></svg>
+            Chạy SAM Tự Động
+          </a>
+        </div>
+      </section>
+
+      <!-- ── Quick stats ── -->
+      <div class="stats-row">
+        <div class="stat-box">
+          <div class="stat-box-value">2</div>
+          <div class="stat-box-label">Chế độ vận hành</div>
+        </div>
+        <div class="stat-box">
+          <div class="stat-box-value">YOLOv8+</div>
+          <div class="stat-box-label">Detection Model</div>
+        </div>
+        <div class="stat-box">
+          <div class="stat-box-value">SAM</div>
+          <div class="stat-box-label">Auto ROI/MOI</div>
+        </div>
+        <div class="stat-box">
+          <div class="stat-box-value">CSV</div>
+          <div class="stat-box-label">Output Format</div>
+        </div>
+      </div>
+
+      <!-- ── Mode Cards ── -->
+      <section class="card">
+        <div class="section-head">
+          <h2>Hai Chế Độ Vận Hành</h2>
+          <p>Chọn chế độ phù hợp với dữ liệu và yêu cầu của bạn.</p>
+        </div>
+        <div class="mode-cards">
+
+          <!-- MANUAL -->
+          <div class="mode-card mode-card--manual">
+            <div class="mode-card-head">
+              <div class="mode-card-icon">
+                <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 013 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
+              </div>
+              <div>
+                <span class="page-badge page-badge--manual" style="margin-bottom:4px;display:inline-flex;">Chế Độ Thủ Công</span>
+                <h3>Đếm Xe Thủ Công</h3>
+              </div>
+            </div>
+            <p>
+              Dùng khi đã có sẵn thông tin camera (file ROI, MOI, movement description từ dataset).
+              Hỗ trợ vẽ ROI và MOI <strong>trực tiếp trên frame video</strong> ngay trong trình duyệt
+              — không cần phần mềm ngoài.
+            </p>
+            <ul class="mode-card-features">
+              <li><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg> Upload ROI / MOI file có sẵn</li>
+              <li><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg> Vẽ ROI polygon và mũi tên MOI trên canvas</li>
+              <li><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg> Hỗ trợ Movement Description cho đúng nhãn</li>
+              <li><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg> Không cần kết nối internet</li>
+              <li><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg> Tốc độ xử lý nhanh nhất</li>
+            </ul>
+            <a href="{% url 'manual' %}" class="mode-card-link">
+              Vào Chế Độ Thủ Công
+              <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
+            </a>
+          </div>
+
+          <!-- AUTO SAM -->
+          <div class="mode-card mode-card--auto">
+            <div class="mode-card-head">
+              <div class="mode-card-icon">
+                <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.07 4.93a10 10 0 010 14.14M4.93 4.93a10 10 0 000 14.14"/></svg>
+              </div>
+              <div>
+                <span class="page-badge page-badge--auto" style="margin-bottom:4px;display:inline-flex;">Tự Động SAM</span>
+                <h3>Đếm Xe Tự Động</h3>
+              </div>
+            </div>
+            <p>
+              Không cần cài đặt thủ công — chỉ cần video và weights.
+              <strong>Grounded-DINO</strong> xác định vùng đường, <strong>SAM Bootstrap</strong> tự phân tích quỹ đạo phương tiện
+              để sinh ROI và MOI, rồi đếm hoàn toàn tự động.
+            </p>
+            <ul class="mode-card-features">
+              <li><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg> Tự sinh ROI (Segment Anything Model)</li>
+              <li><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg> Tự sinh MOI từ K-means phân tích quỹ đạo</li>
+              <li><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg> Grounded-DINO với text prompt mô tả vùng đường</li>
+              <li><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg> Tự fallback sang SAM thuần nếu lỗi mạng</li>
+              <li><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg> Xem overlay ảnh ROI/MOI trước khi đếm</li>
+            </ul>
+            <a href="{% url 'auto' %}" class="mode-card-link">
+              Vào Chế Độ SAM
+              <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
+            </a>
+          </div>
+
+        </div>
+      </section>
+
+      <!-- ── Architecture Diagrams ── -->
+      <section class="card arch-section">
+        <div class="section-head">
+          <h2>Kiến Trúc Hệ Thống</h2>
+          <p>Sơ đồ luồng xử lý của từng chế độ vận hành.</p>
+        </div>
+
+        <div class="arch-panels">
+
+          <!-- Manual architecture -->
+          <div class="arch-panel">
+            <div class="arch-panel-label arch-panel-label--manual">
+              <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 013 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
+              Chế Độ Thủ Công — Kiến Trúc
+            </div>
+            <div class="arch-img-slot" id="archManualSlot">
+              <!-- Replace this placeholder with your image:
+                   <img src="{% static 'counter/arch_manual.png' %}" alt="Kiến trúc chế độ thủ công" />
+              -->
+              <div class="arch-placeholder">
+                <div class="arch-placeholder-icon">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+                </div>
+                <p><strong>Sơ đồ kiến trúc — Chế độ Thủ Công</strong></p>
+                <small>Đặt file ảnh tại <code>static/counter/arch_manual.png</code><br>rồi bỏ comment thẻ &lt;img&gt; bên trên.</small>
+              </div>
+            </div>
+          </div>
+
+          <!-- Auto SAM architecture -->
+          <div class="arch-panel">
+            <div class="arch-panel-label arch-panel-label--auto">
+              <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="3"/><path d="M19.07 4.93a10 10 0 010 14.14M4.93 4.93a10 10 0 000 14.14"/></svg>
+              Chế Độ Tự Động SAM — Kiến Trúc
+            </div>
+            <div class="arch-img-slot" id="archAutoSlot">
+              <!-- Replace this placeholder with your image:
+                   <img src="{% static 'counter/arch_auto.png' %}" alt="Kiến trúc chế độ SAM tự động" />
+              -->
+              <div class="arch-placeholder">
+                <div class="arch-placeholder-icon">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+                </div>
+                <p><strong>Sơ đồ kiến trúc — Chế độ SAM Tự Động</strong></p>
+                <small>Đặt file ảnh tại <code>static/counter/arch_auto.png</code><br>rồi bỏ comment thẻ &lt;img&gt; bên trên.</small>
+              </div>
+            </div>
+          </div>
+
+        </div>
+
+        <!-- Pipeline text flows -->
+        <div style="margin-top: 28px; display: grid; grid-template-columns: 1fr 1fr; gap: 22px;">
+
+          <div>
+            <p class="section-label" style="color:#009aa0;">Pipeline — Thủ Công</p>
+            <div class="pipeline-flow">
+              <div class="pipeline-step">
+                <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="2" y="7" width="20" height="15" rx="2"/><polyline points="17 2 12 7 7 2"/></svg>
+                Video
+              </div>
+              <span class="pipeline-arrow">→</span>
+              <div class="pipeline-step">
+                <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polygon points="12 2 22 8.5 22 15.5 12 22 2 15.5 2 8.5 12 2"/></svg>
+                ROI / MOI
+              </div>
+              <span class="pipeline-arrow">→</span>
+              <div class="pipeline-step">
+                <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+                YOLO
+              </div>
+              <span class="pipeline-arrow">→</span>
+              <div class="pipeline-step">
+                <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+                Kalman
+              </div>
+              <span class="pipeline-arrow">→</span>
+              <div class="pipeline-step">
+                <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+                CSV
+              </div>
+            </div>
+          </div>
+
+          <div>
+            <p class="section-label" style="color:var(--brand);">Pipeline — SAM Tự Động</p>
+            <div class="pipeline-flow">
+              <div class="pipeline-step">
+                <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="2" y="7" width="20" height="15" rx="2"/><polyline points="17 2 12 7 7 2"/></svg>
+                Video
+              </div>
+              <span class="pipeline-arrow">→</span>
+              <div class="pipeline-step">
+                <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="3"/><path d="M19.07 4.93a10 10 0 010 14.14M4.93 4.93a10 10 0 000 14.14"/></svg>
+                DINO+SAM
+              </div>
+              <span class="pipeline-arrow">→</span>
+              <div class="pipeline-step">
+                <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polygon points="12 2 22 8.5 22 15.5 12 22 2 15.5 2 8.5 12 2"/></svg>
+                ROI+MOI
+              </div>
+              <span class="pipeline-arrow">→</span>
+              <div class="pipeline-step">
+                <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+                YOLO
+              </div>
+              <span class="pipeline-arrow">→</span>
+              <div class="pipeline-step">
+                <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+                CSV
+              </div>
+            </div>
+          </div>
+
+        </div>
+      </section>
+
+      <!-- ── Tech stack ── -->
+      <section class="card">
+        <div class="section-head">
+          <h2>Công Nghệ Sử Dụng</h2>
+          <p>Các thư viện và mô hình AI cốt lõi của hệ thống.</p>
+        </div>
+        <div class="tech-grid">
+          <span class="tech-chip"><svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="11" cy="11" r="8"/></svg> YOLOv8/v9/v10/v11</span>
+          <span class="tech-chip"><svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg> Kalman Filter</span>
+          <span class="tech-chip"><svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="16" y1="16" x2="12" y2="12"/><line x1="8" y1="8" x2="12" y2="12"/></svg> Hungarian Algorithm</span>
+          <span class="tech-chip"><svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="3"/><path d="M19.07 4.93a10 10 0 010 14.14"/></svg> Segment Anything (SAM)</span>
+          <span class="tech-chip"><svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg> Grounding-DINO</span>
+          <span class="tech-chip"><svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"/></svg> OpenCV</span>
+          <span class="tech-chip"><svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="4 17 10 11 4 5"/><line x1="12" y1="19" x2="20" y2="19"/></svg> Python / Django</span>
+          <span class="tech-chip"><svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/></svg> CSV Output (AIC21 format)</span>
+          <span class="tech-chip"><svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2"/></svg> H.264 Video Output</span>
+          <span class="tech-chip"><svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="18" cy="15" r="3"/><circle cx="9" cy="7" r="4"/><path d="M10.67 12.5c-1.2.5-2.09 1.5-2.42 2.73"/><path d="M14.11 12.16A5 5 0 0 1 21 17"/></svg> K-Means MOI clustering</span>
+        </div>
+      </section>
+
+    </div>
+  </main>
+
+  <script>
+  (function () {
+    'use strict';
+    const HTML = document.documentElement;
+    const themeToggle = document.getElementById('themeToggle');
+    const themeLabel  = document.getElementById('themeLabel');
+    const PREF_KEY = 'dtc-theme';
+    function applyTheme(t) {
+      HTML.setAttribute('data-theme', t);
+      if (themeLabel) themeLabel.textContent = t === 'dark' ? 'Sáng' : 'Tối';
+      try { localStorage.setItem(PREF_KEY, t); } catch(_) {}
+    }
+    try {
+      const s = localStorage.getItem(PREF_KEY);
+      if (s === 'dark' || s === 'light') applyTheme(s);
+      else if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) applyTheme('dark');
+    } catch(_) {}
+    if (themeToggle) themeToggle.addEventListener('click', () =>
+      applyTheme((HTML.getAttribute('data-theme') || 'light') === 'dark' ? 'light' : 'dark'));
+  }());
+  </script>
+</body>
+</html>

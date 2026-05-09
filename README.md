@@ -17,7 +17,7 @@
 6. [Module Theo dõi (Tracking) — Kỹ thuật toán học](#6-module-theo-dõi-tracking--kỹ-thuật-toán-học)
 7. [Module Đếm (Counting)](#7-module-đếm-counting)
 8. [Cải tiến: Grounded SAM Bootstrap](#8-cải-tiến-grounded-sam-bootstrap)
-9. [Ba Baseline so sánh](#9-ba-baseline-so-sánh)
+9. [Bốn Baseline so sánh](#9-bốn-baseline-so-sánh)
 10. [Độ đo đánh giá](#10-độ-đo-đánh-giá)
 11. [Web Demo (Django)](#11-web-demo-django)
 12. [Cài đặt môi trường](#12-cài-đặt-môi-trường)
@@ -793,7 +793,7 @@ cv2.kmeans(data, k, criteria, 8, KMEANS_PP_CENTERS)
 
 ---
 
-## 9. Ba Baseline so sánh
+## 9. Bốn Baseline so sánh
 
 ### Baseline 1 — Angle Fallback (từ Movement Description)
 
@@ -847,9 +847,28 @@ _MIN_STRAIGHTNESS = 0.40   # displacement/path_length (lọc xe xoay vòng)
 _TOP_MARGIN_FRAC  = 0.20   # bỏ qua 20% top frame (background xa)
 ```
 
-### Baseline 3 — Grounded SAM Bootstrap
+### Baseline 3 — SAM Automatic (Không dùng Detector)
 
-Xem chi tiết ở [Mục 8](#8-cải-tiến-grounded-sam-bootstrap).
+**Phương pháp:** Chạy nguyên bản Segment Anything Model (SAM) mà không cần text prompt hay detector nào để tự tìm đường.
+- Ưu điểm: Khởi chạy cực nhanh, độc lập.
+- Nhược điểm: Sai số lớn với các ngã tư phức tạp do heuristics có thể đoán sai vùng mặt đường.
+
+### Baseline 4 — SAM + YOLO-prompted (Grounded SAM Bootstrap)
+
+Xem chi tiết ở [Mục 8](#8-cải-tiến-grounded-sam-bootstrap). Chế độ này dùng Grounding DINO kết hợp SAM để tự động nội suy vùng đếm cực kỳ chuẩn xác.
+
+### Kết Quả Đánh Giá Tổng Thể (Cam_5_1min)
+
+Kết quả khi chạy `run_full_comparison.py` trên tập video mẫu `counting_example_cam_5_1min.mp4`:
+
+| Phương Pháp (Baseline) | Tổng Số Xe Thực Tế (GT) | Số Đếm Hệ Thống | nwRMSE ↓ | S1 Overall ↑ | Count Accuracy | MAE (Sai số/nhóm) |
+| :--- | :---: | :---: | :---: | :---: | :---: | :---: |
+| **B1:** Thủ Công ROI + Cung cấp sẵn MOIs | 96 | 145 | 1.1504 | 0.0876 | 48.96% | 5.087 |
+| **B2:** Thủ Công ROI + Track-Mined MOI | 96 | 145 | 1.6976 | 0.0663 | 48.96% | 7.260 |
+| **B3:** SAM Auto (Không dùng YOLO) | 96 | 211 | 2.2100 | 0.0209 | 0% | 10.391 |
+| **B4:** SAM Auto + YOLO Bootstrap | 96 | 154 | 1.9259 | 0.0727 | 39.58% | 6.500 |
+
+*(Lưu ý: B1 được sử dụng file tọa độ MOIs thủ công chuẩn xác, cho sai số thấp nhất. Video xuất ra được làm sạch hoàn toàn các nhãn bounding box, tracking line, mũi tên để tập trung hiển thị ROI và dòng xe chạy thực tế.)*
 
 ---
 
@@ -949,8 +968,10 @@ User views /result/<run_id>/  ← bảng đếm, video, CSV download
 **Auto Mode (`/auto/`):**
 - Upload video + weights
 - Tùy chọn upload movement description để gợi ý số MOI
-- Hệ thống tự động chạy Grounded SAM → sinh ROI/MOI
-- Fallback sang `sam_bootstrap.py` nếu Grounded SAM thất bại
+- Cung cấp checkbox **Sử dụng Grounding-DINO**:
+  - **Bật:** Hệ thống tự động chạy Grounded SAM → sinh ROI/MOI.
+  - **Tắt:** Chạy chế độ SAM Automatic cực nhanh (chỉ dùng SAM).
+- Fallback tự động khi các phương pháp nâng cao thất bại.
 
 ### 11.4 MOI count logic (3-branch)
 
@@ -1089,35 +1110,24 @@ python grounded_sam_bootstrap.py \
   --sam-model sam_b.pt
 ```
 
-### 13.3 Chạy 3 Baseline
+### 13.3 Chạy 4 Baseline Đánh Giá
 
 ```bash
 cd dtc_counting
 
-# Chạy đầy đủ (baseline 1, 2, 3)
-python run_three_baselines.py
-
-# Bỏ qua baseline 3 (Grounded SAM) — chạy nhanh hơn
-python run_three_baselines.py --skip-baseline3
-
-# Tùy chỉnh frame budget cho baseline 2
-python run_three_baselines.py --mining-frames 600 --imgsz 640
-
-# Dùng SAM thay Grounded SAM cho baseline 3
-python run_three_baselines.py --baseline3-mode sam
-
-# Chạy trên video khác
-python run_three_baselines.py \
-  --video /path/to/video.mp4 \
-  --roi-file /path/to/roi.txt \
-  --movement-description /path/to/movement.txt \
-  --video-clip-id 5
+# Chạy đầy đủ 4 baselines và xuất báo cáo
+python run_full_comparison.py \
+  --video data/AIC21_Track1_Vehicle_Counting/counting_gt_sample/counting_example_cam_5_1min.mp4 \
+  --roi-file data/AIC21_Track1_Vehicle_Counting/ROIs/cam_5.txt \
+  --movement-description data/AIC21_Track1_Vehicle_Counting/movement_description/cam_5.txt \
+  --gt-csv data/AIC21_Track1_Vehicle_Counting/counting_gt_sample/counting_example_cam_5_1min.csv \
+  --moi-vectors data/AIC21_Track1_Vehicle_Counting/MOI_vectors/cam_5.txt
 ```
 
-**Output trong `outputs/baselines/`:**
+**Output trong `outputs/comparison/`:**
 
 ```
-baseline_summary.json           ← so sánh số đếm 3 baseline vs ground truth
+comparison_summary.json           ← so sánh số đếm 4 baseline vs ground truth
 baseline1_angle_fallback.csv    ← kết quả baseline 1
 baseline2_moi_from_tracks.txt   ← MOI vectors do baseline 2 sinh ra
 baseline2_track_moi.csv         ← kết quả đếm baseline 2

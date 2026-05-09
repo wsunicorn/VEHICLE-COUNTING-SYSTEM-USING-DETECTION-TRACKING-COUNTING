@@ -148,13 +148,21 @@
             </span>
           </div>
 
-          <label class="field-wrap">
+          <label class="checkbox-wrap" style="margin-bottom: 12px; grid-column:1/-1;">
+            {{ form.use_grounding }}
+            <div class="checkbox-text">
+              <span class="field-label">Sử dụng Grounding-DINO</span>
+              <p class="field-hint">Nếu tắt, hệ thống sẽ sử dụng chế độ SAM Automatic (chỉ dùng SAM, không cần Text Prompt hay Detector). Nhanh hơn nhưng kết quả phụ thuộc vào heuristic của SAM.</p>
+            </div>
+          </label>
+
+          <label class="field-wrap" id="groundingModelWrap">
             <span class="field-label">Grounding Model</span>
             {{ form.grounding_model }}
             <p class="field-hint">Model phát hiện vùng đường từ Hugging Face. Giữ mặc định nếu không chắc.</p>
           </label>
 
-          <label class="field-wrap">
+          <label class="field-wrap" id="textPromptWrap">
             <span class="field-label">Text Prompt</span>
             {{ form.text_prompt }}
             <p class="field-hint">Mô tả vùng đường cần detect, cách nhau bằng dấu chấm ( . ).</p>
@@ -433,6 +441,22 @@
       maxFramesInput.disabled = !quickCb.checked;
     }
     if (quickCb) { quickCb.addEventListener('change', syncMaxFrames); syncMaxFrames(); }
+
+    /* ── Grounding toggle sync ── */
+    const groundingCb = document.querySelector('input[name="use_grounding"]');
+    const groundingModelWrap = document.getElementById('groundingModelWrap');
+    const textPromptWrap = document.getElementById('textPromptWrap');
+    function syncGrounding() {
+      if (!groundingCb || !groundingModelWrap || !textPromptWrap) return;
+      const useIt = groundingCb.checked;
+      groundingModelWrap.style.opacity = useIt ? '1' : '0.45';
+      textPromptWrap.style.opacity = useIt ? '1' : '0.45';
+      const gmInput = document.querySelector('input[name="grounding_model"]');
+      const tpInput = document.querySelector('input[name="text_prompt"]');
+      if (gmInput) gmInput.disabled = !useIt;
+      if (tpInput) tpInput.disabled = !useIt;
+    }
+    if (groundingCb) { groundingCb.addEventListener('change', syncGrounding); syncGrounding(); }
 
     /* ── Form submit ── */
     const autoForm = document.getElementById('autoForm');

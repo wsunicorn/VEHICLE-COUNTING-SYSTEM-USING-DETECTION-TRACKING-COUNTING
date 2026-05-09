@@ -325,6 +325,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--max-frames", type=int, default=0, help="Stop after this many frames (0 means full video).")
     parser.add_argument("--show", action="store_true", help="Show visualized video while processing.")
     parser.add_argument("--save-video", default="", help="Optional output visualization video path.")
+    parser.add_argument("--output-timing", default="", help="Optional JSON file to write timing info for S1_Efficiency.")
     return parser.parse_args()
 
 
@@ -513,6 +514,14 @@ def collect_detections(model: YOLO, frame: np.ndarray, conf_thres: float, imgsz:
     return detections
 
 
+# Color palette for track visualization (BGR)
+_TRACK_COLORS = [
+    (230, 159, 0), (86, 180, 233), (0, 158, 115), (240, 228, 66),
+    (0, 114, 178), (213, 94, 0), (204, 121, 167), (100, 200, 50),
+    (50, 100, 200), (200, 50, 100), (150, 150, 0), (0, 150, 150),
+]
+
+
 def draw_frame(
     frame: np.ndarray,
     roi_polygon: np.ndarray,
@@ -521,30 +530,93 @@ def draw_frame(
     tracks: Dict[int, Track],
     count_stats: Dict[Tuple[int, int], int],
     moi_vectors: Optional[Dict[int, Tuple[Point, Point]]] = None,
+    frame_idx: int = 0,
 ) -> np.ndarray:
     vis = frame.copy()
+
+    # Draw ROI polygons with semi-transparent fill
+    roi_overlay = vis.copy()
+    cv2.fillPoly(roi_overlay, [roi_polygon], (0, 255, 255))
+    cv2.addWeighted(roi_overlay, 0.08, vis, 0.92, 0, vis)
     cv2.polylines(vis, [roi_polygon], isClosed=True, color=(0, 255, 255), thickness=2)
-    if eroi_polygon is not None:
+    if eroi_polygon is not None and not np.array_equal(eroi_polygon, roi_polygon):
         cv2.polylines(vis, [eroi_polygon], isClosed=True, color=(0, 200, 80), thickness=2)
     if iroi_polygon is not None:
+        iroi_overlay = vis.copy()
+        cv2.fillPoly(iroi_overlay, [iroi_polygon], (0, 0, 255))
+        cv2.addWeighted(iroi_overlay, 0.12, vis, 0.88, 0, vis)
         cv2.polylines(vis, [iroi_polygon], isClosed=True, color=(0, 0, 255), thickness=2)
 
-    # MOI arrows and vehicle bounding boxes are hidden in demo mode.
+    # Draw MOI arrows (Disabled as requested)
+    # if moi_vectors:
+    #     for mid, (start, end) in moi_vectors.items():
+    #         sx, sy = int(start[0]), int(start[1])
+    #         ex, ey = int(end[0]), int(end[1])
+    #         cv2.arrowedLine(vis, (sx, sy), (ex, ey), (0, 180, 255), 2, tipLength=0.06)
+    #         cv2.putText(vis, f"M{mid}", (sx - 5, sy - 8),
+    #                     cv2.FONT_HERSHEY_SIMPLEX, 0.45, (0, 220, 255), 1, cv2.LINE_AA)
 
+    # Draw tracked vehicles: bbox, ID, trajectory trail
+    for tid, tr in tracks.items():
+        if tr.hits < 2:
+            continue  # Skip unconfirmed tracks
+
+        color = _TRACK_COLORS[tid % len(_TRACK_COLORS)]
+        x1, y1, x2, y2 = [int(v) for v in tr.bbox]
+        cls_tag = "C" if tr.cls_id == 1 else "T"
+
+        # Bounding box & Label (Disabled to avoid obscuring the video)
+        # box_thick = 2 if tr.hits >= 3 else 1
+        # cv2.rectangle(vis, (x1, y1), (x2, y2), color, box_thick)
+        # 
+        # label = f"#{tid} {cls_tag}"
+        # (lw, lh), _ = cv2.getTextSize(label, cv2.FONT_HERSHEY_SIMPLEX, 0.45, 1)
+        # cv2.rectangle(vis, (x1, y1 - lh - 6), (x1 + lw + 4, y1), color, -1)
+        # cv2.putText(vis, label, (x1 + 2, y1 - 4),
+        #             cv2.FONT_HERSHEY_SIMPLEX, 0.45, (0, 0, 0), 1, cv2.LINE_AA)
+
+        # Draw a small dot at the center of the vehicle (Disabled as requested)
+        # cx, cy = int(tr.center[0]), int(tr.center[1])
+        # cv2.circle(vis, (cx, cy), 3, color, -1)
+
+        # Trajectory trail (Disabled as requested)
+        # trail = tr.history[-30:]
+        # for i in range(1, len(trail)):
+        #     p1 = (int(trail[i - 1][0]), int(trail[i - 1][1]))
+        #     p2 = (int(trail[i][0]), int(trail[i][1]))
+        #     alpha = i / len(trail)
+        #     thick = max(1, int(alpha * 3))
+        #     cv2.line(vis, p1, p2, color, thick)
+
+    # Count stats panel (top-right)
     frame_w = vis.shape[1]
-    font      = cv2.FONT_HERSHEY_SIMPLEX
-    font_scale = 0.6
-    thickness  = 2
+    font = cv2.FONT_HERSHEY_SIMPLEX
+    font_scale = 0.55
+    thickness = 1
     y = 25
+
+    # Total count header
+    total_counted = sum(count_stats.values())
+    header = f"Total: {total_counted}"
+    (hw, hh), _ = cv2.getTextSize(header, font, 0.7, 2)
+    hx = frame_w - hw - 14
+    cv2.rectangle(vis, (hx - 6, y - hh - 4), (hx + hw + 6, y + 4), (0, 0, 0), -1)
+    cv2.putText(vis, header, (hx, y), font, 0.7, (0, 255, 200), 2, cv2.LINE_AA)
+    y += hh + 14
+
     for (mid, cls_id), value in sorted(count_stats.items(), key=lambda kv: (kv[0][0], kv[0][1])):
         tag = "car" if cls_id == 1 else "truck"
         text = f"m{mid}-{tag}: {value}"
         (tw, th), baseline = cv2.getTextSize(text, font, font_scale, thickness)
         x = frame_w - tw - 10
-        # Dark semi-transparent background for readability
         cv2.rectangle(vis, (x - 4, y - th - 3), (x + tw + 4, y + baseline + 1), (0, 0, 0), -1)
         cv2.putText(vis, text, (x, y), font, font_scale, (255, 255, 255), thickness, cv2.LINE_AA)
-        y += th + baseline + 8
+        y += th + baseline + 6
+
+    # Frame counter (bottom-left)
+    frame_text = f"Frame: {frame_idx}"
+    cv2.putText(vis, frame_text, (10, vis.shape[0] - 12),
+                font, 0.5, (200, 200, 200), 1, cv2.LINE_AA)
 
     return vis
 
@@ -685,7 +757,7 @@ def main() -> None:
             )
 
         if args.show or writer is not None:
-            vis = draw_frame(frame, roi_polygon, eroi_polygon, iroi_polygon, tracks, count_stats, moi_vectors)
+            vis = draw_frame(frame, roi_polygon, eroi_polygon, iroi_polygon, tracks, count_stats, moi_vectors, frame_idx)
             if writer is not None:
                 writer.write(vis)
             if args.show:
@@ -743,6 +815,24 @@ def main() -> None:
     elapsed_total = max(1e-6, time.time() - start_ts)
     print(f"[timing] processed_frames={frame_idx} elapsed={elapsed_total:.2f}s avg_fps={frame_idx/elapsed_total:.2f}")
     print(f"Done. Wrote {len(rows)} counting events to: {args.output_csv}")
+
+    # Write timing JSON for S1_Efficiency evaluation
+    if args.output_timing:
+        timing_dir = os.path.dirname(args.output_timing)
+        if timing_dir:
+            os.makedirs(timing_dir, exist_ok=True)
+        import json
+        timing_data = {
+            "processed_frames": frame_idx,
+            "elapsed_seconds": round(elapsed_total, 3),
+            "avg_fps": round(frame_idx / elapsed_total, 2),
+            "video_fps": fps,
+            "total_video_frames": total_frames,
+            "frame_stride": args.frame_stride,
+        }
+        with open(args.output_timing, "w", encoding="utf-8") as tf:
+            json.dump(timing_data, tf, indent=2)
+        print(f"[timing] Wrote timing data to: {args.output_timing}")
 
 
 if __name__ == "__main__":

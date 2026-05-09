@@ -47,6 +47,7 @@ class AutoForm(forms.Form):
     quick_preview   = forms.BooleanField(label="Quick Preview", required=False, initial=True)
     max_frames      = forms.IntegerField(label="Số frame tối đa", initial=1200, min_value=30, required=False)
     save_video      = forms.BooleanField(label="Lưu video visualize", required=False, initial=True)
+    use_grounding   = forms.BooleanField(label="Sử dụng Grounding-DINO (Nếu tắt, chỉ dùng SAM Automatic)", required=False, initial=True)
     grounding_model = forms.CharField(
         label="Grounding Model",
         initial="IDEA-Research/grounding-dino-base",

@@ -1,4 +1,4 @@
-﻿import csv
+import csv
 import json
 import os
 import re
@@ -249,23 +249,42 @@ def _execute_run(
             bootstrap_frames = min(int(data.get("max_frames") or 1200), 600)
 
             grounded_sam_ok = False
-            cmd_boot = [
-                py, "grounded_sam_bootstrap.py",
-                "--video", video_path,
-                "--output-json", str(b3_json),
-                "--save-overlay", str(b3_overlay),
-                "--grounding-model", data["grounding_model"] or "IDEA-Research/grounding-dino-base",
-                "--text-prompt", data["text_prompt"] or "road surface . traffic lane . intersection",
-                "--roi-expand", "1.03",
-            ]
-            if moi_count > 0:
-                cmd_boot += ["--moi-count", str(moi_count)]
-            try:
-                _reg_log(run_id, "  Thử Grounded-SAM…")
-                _popen_log(run_id, cmd_boot, dtc_dir)
-                grounded_sam_ok = True
-            except Exception as e:
-                _reg_log(run_id, f"  Grounded-SAM lỗi ({e}) → fallback sang SAM bootstrap…")
+            use_grounding = data.get("use_grounding", True)
+            
+            if not use_grounding:
+                _reg_log(run_id, "  Chế độ SAM Only (Automatic): Bỏ qua Grounding DINO...")
+                cmd_boot = [
+                    py, "sam_auto_bootstrap.py",
+                    "--video", video_path,
+                    "--output-json", str(b3_json),
+                    "--save-overlay", str(b3_overlay),
+                ]
+                if moi_count > 0:
+                    cmd_boot += ["--moi-count", str(moi_count)]
+                try:
+                    _popen_log(run_id, cmd_boot, dtc_dir)
+                    grounded_sam_ok = True
+                except Exception as e:
+                    _reg_log(run_id, f"  SAM Automatic lỗi: {e}")
+                    raise e
+            else:
+                cmd_boot = [
+                    py, "grounded_sam_bootstrap.py",
+                    "--video", video_path,
+                    "--output-json", str(b3_json),
+                    "--save-overlay", str(b3_overlay),
+                    "--grounding-model", data["grounding_model"] or "IDEA-Research/grounding-dino-base",
+                    "--text-prompt", data["text_prompt"] or "road surface . traffic lane . intersection",
+                    "--roi-expand", "1.03",
+                ]
+                if moi_count > 0:
+                    cmd_boot += ["--moi-count", str(moi_count)]
+                try:
+                    _reg_log(run_id, "  Thử Grounded-SAM…")
+                    _popen_log(run_id, cmd_boot, dtc_dir)
+                    grounded_sam_ok = True
+                except Exception as e:
+                    _reg_log(run_id, f"  Grounded-SAM lỗi ({e}) → fallback sang SAM bootstrap…")
                 cmd_sam_boot = [
                     py, "sam_bootstrap.py",
                     "--video", video_path,

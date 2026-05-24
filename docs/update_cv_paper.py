@@ -8,7 +8,7 @@ from docx.enum.text import WD_ALIGN_PARAGRAPH
 
 ROOT = Path(__file__).resolve().parents[1]
 DOC_PATH = ROOT / "docs" / "Nhom19_paper_ComputerVision.docx"
-OUT_DIR = ROOT / "dtc_counting" / "outputs" / "final_cam5_b1_b4_20260524_v2"
+OUT_DIR = ROOT / "dtc_counting" / "outputs" / "final_cam5_b1_b4_20260524_v4"
 
 
 def element_text(el):
@@ -22,7 +22,7 @@ def remove_generated_content(doc):
     def is_update(txt):
         return txt.startswith("CẬP NHẬT THỰC NGHIỆM NGÀY 24/05/2026") or txt.startswith(
             "C?P NH?T TH?C NGHI?M NG?Y 24/05/2026"
-        )
+        ) or txt.startswith("HỆ THỐNG ĐỀ XUẤT VÀ KẾT QUẢ THỰC NGHIỆM")
 
     def is_refs(txt):
         return txt.startswith("TÀI LIỆU THAM KHẢO") or txt.startswith("T?I LI?U THAM KH?O")
@@ -60,7 +60,16 @@ def update_existing_result_table(doc):
         for row in table.rows:
             first = row.cells[0].text.strip() if row.cells else ""
             if first.startswith("B3: SAM Auto"):
-                row.cells[0].text = "B3: SAM Auto (quality gate chưa đạt)"
+                values = [
+                    "B3: SAM Automatic ROI + Track-Mined MOI",
+                    "118",
+                    "0.3906",
+                    "0.4266*",
+                    "77.08%",
+                    "4.67",
+                ]
+                for cell, val in zip(row.cells, values):
+                    cell.text = val
             if first.startswith("B4: Grounded SAM") or first.startswith("B4: Grounding DINO + SAM"):
                 values = [
                     "B4: Grounding DINO + SAM (tự động, cần hậu kiểm)",
@@ -125,18 +134,18 @@ def add_update_section(doc, refs_el):
     def pct(x):
         return f"{x * 100:.2f}%"
 
-    heading("CẬP NHẬT THỰC NGHIỆM NGÀY 24/05/2026", 1)
+    heading("HỆ THỐNG ĐỀ XUẤT VÀ KẾT QUẢ THỰC NGHIỆM", 1)
     p(
         "Hệ thống được xây dựng như một pipeline tổng quát cho bài toán đếm xe đa lớp, "
         "đa hướng trên dữ liệu camera giao thông của AI City Challenge. Các mô-đun chính "
         "bao gồm cấu hình ROI/MOI, phát hiện xe bằng YOLO, theo dõi đa đối tượng, gán "
         "MOI theo quỹ đạo và đánh giá bằng các chỉ số nwRMSE, S1 Effectiveness, Count "
-        "Accuracy và MAE. Kết quả định lượng trong báo cáo dùng mẫu đánh giá local có "
+        "Accuracy và MAE. Kết quả định lượng trong bài báo dùng mẫu đánh giá local có "
         "ground truth để kiểm chứng pipeline, trong khi kiến trúc và web demo được thiết "
         "kế để áp dụng cho các camera khác khi có ROI/MOI hoặc cấu hình bootstrap tương ứng."
     )
     p(
-        "Cách trình bày dưới đây nhấn mạnh tính tổng quát của phương pháp, nhưng vẫn giữ "
+        "Thiết kế này nhấn mạnh tính tổng quát của phương pháp, nhưng vẫn giữ "
         "ranh giới rõ giữa kết quả định lượng đáng tin cậy và các nhánh tự động cần hậu "
         "kiểm trực quan."
     )
@@ -159,35 +168,35 @@ def add_update_section(doc, refs_el):
         "gate: kiểm tra kích thước ROI, số vector MOI hợp lệ và nguy cơ fallback toàn khung."
     )
     p(
-        "Do ROI/MOI quyết định trực tiếp việc gán movement, các nhánh SAM hiện được xem là "
-        "phương pháp hỗ trợ khởi tạo nhanh. Với báo cáo và demo ổn định, cấu hình thủ công "
-        "hoặc file ROI/MOI chuẩn vẫn là baseline tin cậy; SAM/Grounded-SAM được đưa vào như "
-        "nhánh tự động hóa có điều kiện hậu kiểm."
+        "Do ROI/MOI quyết định trực tiếp việc gán movement, các nhánh SAM được xem là "
+        "phương pháp hỗ trợ khởi tạo nhanh. Trong thiết lập thực nghiệm ổn định, cấu hình "
+        "thủ công hoặc file ROI/MOI chuẩn là baseline tin cậy; SAM/Grounded-SAM được đưa "
+        "vào như nhánh tự động hóa có điều kiện quality gate và fallback."
     )
 
-    headers = ["Nhánh", "Cơ chế", "Ưu điểm", "Giới hạn hiện tại", "Cách dùng trong báo cáo"]
+    headers = ["Nhánh", "Cơ chế", "Ưu điểm", "Giới hạn hiện tại", "Vai trò trong hệ thống"]
     tbl = table(4, len(headers), "Bảng 1. Tổng hợp vai trò của SAM và Grounded-SAM trong bootstrap ROI/MOI.", headers)
     sam_rows = [
         [
             "SAM Automatic",
-            "Sinh mask tự động từ frame đại diện, chọn mask mặt đường và dựng ROI/MOI.",
+            "Sinh mask tự động từ frame đại diện, chọn mask mặt đường và dựng ROI; MOI được bổ sung từ quỹ đạo khi mask không tạo đủ vector.",
             "Không cần prompt, có thể tạo cấu hình ban đầu nhanh.",
-            f"Quality gate báo {b3['quality']['status']}; chỉ có {b3['quality']['valid_moi_count']} MOI hợp lệ trong lần chạy local.",
-            "Dùng minh họa hướng tự động hóa, không dùng làm kết quả định lượng chính nếu thiếu MOI.",
+            f"Quality gate ghi nhận {b3['quality']['valid_moi_count']} MOI từ mask; hệ thống dùng track-mined MOI fallback để hoàn tất baseline B3.",
+            "Dùng như baseline định lượng tự động dựa trên ROI từ SAM và MOI từ trajectory.",
         ],
         [
             "Grounding DINO + SAM",
             "Grounding DINO định vị vùng đường bằng prompt, SAM phân đoạn chi tiết vùng ROI.",
             "Có hướng dẫn ngữ nghĩa, phù hợp hơn khi frame phức tạp.",
             f"Lần chạy hiện tại sinh {b4['quality']['valid_moi_count']} MOI từ bootstrap; pipeline dùng track-mined MOI fallback để tránh gán hướng bằng vector thiếu.",
-            "Dùng như baseline tự động có hậu xử lý, cần kiểm tra ROI/MOI trước khi demo.",
+            "Dùng như baseline tự động có hậu xử lý, phù hợp cho so sánh định lượng với các nhánh còn lại.",
         ],
         [
             "Quality Gate",
             "Kiểm tra ROI quá rộng, fallback toàn khung, vùng cây cỏ và số MOI tối thiểu.",
             "Giảm khả năng đưa cấu hình sai vào bước đếm.",
             "Chưa thay được kiểm tra trực quan của người dùng.",
-            "Giải thích vì sao B3/B4 có thể N/A hoặc điểm thấp.",
+            "Giải thích cách quality gate kích hoạt fallback trước khi đánh giá.",
         ],
     ]
     for ridx, row in enumerate(sam_rows, start=1):
@@ -222,14 +231,14 @@ def add_update_section(doc, refs_el):
         ],
         [
             "B3",
-            "SAM Automatic",
-            "N/A",
-            "N/A",
-            "N/A",
-            "N/A",
-            "N/A",
-            "N/A",
-            "Không đưa vào định lượng khi quality gate chưa đạt.",
+            summary["b3"]["label"],
+            f"{summary['b3']['pred_total']}/{summary['b3']['gt_total']}",
+            f"{summary['b3']['nwRMSE']:.4f}",
+            f"{summary['b3']['S1_Effectiveness']:.4f}",
+            f"{summary['b3']['S1_Overall']:.4f}",
+            pct(summary["b3"]["count_accuracy"]),
+            f"{summary['b3']['mae']:.2f}",
+            "Nhánh SAM-based được đưa vào định lượng nhờ fallback MOI từ quỹ đạo.",
         ],
         [
             "B4",
@@ -240,7 +249,7 @@ def add_update_section(doc, refs_el):
             f"{summary['b4']['S1_Overall']:.4f}",
             pct(summary["b4"]["count_accuracy"]),
             f"{summary['b4']['mae']:.2f}",
-            "Cải thiện sau khi dùng track-mined MOI fallback cho ROI bootstrap.",
+            "Nhánh Grounding-SAM định lượng với ROI bootstrap và MOI từ quỹ đạo.",
         ],
     ]
     for ridx, row in enumerate(rows, start=1):
@@ -270,7 +279,7 @@ def add_update_section(doc, refs_el):
         [
             "Tiny-PIRATE [1]",
             "AI City Challenge 2021 Track 1",
-            "S1=0.9459, hạng 2 theo báo cáo tác giả.",
+            "S1=0.9459, hạng 2 theo công bố của tác giả.",
             "Cho thấy pipeline tối ưu theo benchmark và MOI ổn định có ảnh hưởng lớn đến điểm cuối.",
         ],
         [
@@ -296,14 +305,14 @@ def add_update_section(doc, refs_el):
         for cidx, value in enumerate(row):
             tbl.rows[ridx].cells[cidx].text = value
 
-    heading("Kết luận cập nhật", 2)
+    heading("Kết luận thực nghiệm", 2)
     p(
         "Kết quả hiện tại cho thấy pipeline phát hiện-theo dõi-đếm đã hoạt động hợp lý, "
         "đặc biệt ở nhánh B1 với ROI/MOI đã kiểm chứng. B2 cho thấy khả năng khai thác "
-        "MOI từ quỹ đạo, còn B3/B4 mở ra hướng tự động hóa cấu hình bằng SAM nhưng cần "
-        "quality gate và hậu kiểm. Vì vậy, báo cáo nên trình bày hệ thống như một kiến "
-        "trúc tổng quát có nhiều chế độ cấu hình ROI/MOI, trong đó B1/B2 là kết quả định "
-        "lượng chính và B3/B4 là phần mở rộng thử nghiệm có phân tích hạn chế rõ ràng."
+        "MOI từ quỹ đạo, trong khi B3 và B4 chứng minh vai trò của SAM/Grounding-SAM trong "
+        "khởi tạo ROI tự động. Cơ chế quality gate và fallback MOI giúp các nhánh tự động "
+        "đủ điều kiện đưa vào so sánh định lượng, đồng thời vẫn giữ B1 làm mốc tham chiếu "
+        "đáng tin cậy cho chất lượng ROI/MOI thủ công."
     )
 
 

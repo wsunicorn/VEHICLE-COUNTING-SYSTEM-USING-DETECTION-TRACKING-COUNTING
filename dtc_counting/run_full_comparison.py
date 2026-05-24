@@ -269,6 +269,8 @@ def main() -> None:
     # BASELINE 3: SAM Automatic (No Detector)
     # ════════════════════════════════════════════════════════════════
     if not args.skip_sam_auto:
+        b3_moi_override = ""
+        b3_summary_label = "SAM Automatic Bootstrap"
         b3_json = os.path.join(args.output_dir, "b3_sam_auto_bootstrap.json")
         b3_overlay = os.path.join(args.output_dir, "b3_sam_auto_overlay.jpg")
 
@@ -284,17 +286,62 @@ def main() -> None:
         if ok and os.path.exists(b3_json):
             q = bootstrap_quality(b3_json, frame_w, frame_h, args.min_bootstrap_moi)
             if q["status"] != "ok" and not args.allow_low_quality_bootstrap:
-                print(
-                    "  Skipping B3 DTC because SAM Automatic bootstrap is low-confidence "
-                    f"(full_frame={q['is_full_frame_fallback']}, "
-                    f"moi={q['valid_moi_count']}/{q['min_moi_count']})."
-                )
-                ok = False
+                if not q["is_full_frame_fallback"] and tracked_moi_for_counting:
+                    b3_moi_override = tracked_moi_for_counting
+                    b3_summary_label = "SAM Automatic ROI + Track-Mined MOI"
+                    print(
+                        "  B3 SAM ROI is usable but MOI is too sparse "
+                        f"({q['valid_moi_count']}/{q['min_moi_count']}). "
+                        f"Using tracked-MOI fallback: {b3_moi_override}"
+                    )
+                    with open(os.path.join(args.output_dir, "b3_bootstrap_decision.json"), "w", encoding="utf-8") as f:
+                        json.dump(
+                            {
+                                "decision": "use_tracked_moi_fallback",
+                                "reason": "SAM Automatic produced too few valid MOI vectors",
+                                "bootstrap_quality": q,
+                                "moi_fallback_path": b3_moi_override,
+                            },
+                            f,
+                            indent=2,
+                        )
+                else:
+                    print(
+                        "  SAM Automatic bootstrap is low-confidence "
+                        f"(full_frame={q['is_full_frame_fallback']}, "
+                        f"moi={q['valid_moi_count']}/{q['min_moi_count']}). "
+                        "Trying trajectory-guided SAM fallback."
+                    )
+                    b3_json = os.path.join(args.output_dir, "b3_trajectory_sam_bootstrap.json")
+                    b3_overlay = os.path.join(args.output_dir, "b3_trajectory_sam_overlay.jpg")
+                    ok = run_cmd([
+                        py, "sam_bootstrap.py",
+                        "--video", args.video,
+                        "--weights", args.weights,
+                        "--sam-model", args.sam_model,
+                        "--moi-count", "12",
+                        "--max-frames", str(min(args.mining_frames, 90)),
+                        "--output-json", b3_json,
+                        "--save-overlay", b3_overlay,
+                    ], "B3 fallback: Trajectory-guided SAM Bootstrap")
+                    b3_summary_label = "Trajectory-guided SAM Bootstrap"
+
+                    if ok and os.path.exists(b3_json):
+                        q = bootstrap_quality(b3_json, frame_w, frame_h, args.min_bootstrap_moi)
+                        if q["status"] != "ok" and not args.allow_low_quality_bootstrap:
+                            print(
+                                "  Skipping B3 DTC because SAM bootstrap is low-confidence "
+                                f"(full_frame={q['is_full_frame_fallback']}, "
+                                f"moi={q['valid_moi_count']}/{q['min_moi_count']})."
+                            )
+                            ok = False
 
         if ok and os.path.exists(b3_json):
             b3_roi = os.path.join(args.output_dir, "b3_roi.txt")
             b3_moi = os.path.join(args.output_dir, "b3_moi.txt")
             write_roi_and_moi_from_json(b3_json, b3_roi, b3_moi, args.moi_vectors or "")
+            if b3_moi_override:
+                shutil.copyfile(b3_moi_override, b3_moi)
 
             b3_csv = os.path.join(args.output_dir, "b3_sam_auto.csv")
             b3_timing = os.path.join(args.output_dir, "b3_timing.json")
@@ -449,7 +496,7 @@ def main() -> None:
     labels = {
         "b1": "Manual ROI + Official MOI" if args.moi_vectors else "Manual ROI + Angle Fallback",
         "b2": "Manual ROI + Track-Mined MOI (aligned)" if args.moi_vectors else "Manual ROI + Track-Mined MOI",
-        "b3": "SAM Automatic Bootstrap",
+        "b3": locals().get("b3_summary_label", "SAM Automatic Bootstrap"),
         "b4": locals().get("b4_summary_label", "Grounding DINO + SAM Bootstrap"),
     }
 

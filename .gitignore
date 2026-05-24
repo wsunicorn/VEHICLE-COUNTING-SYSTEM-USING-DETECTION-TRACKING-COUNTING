@@ -37,12 +37,24 @@ venv.bak/
 secrets.json
 
 # ============================================================
-# Dataset — AIC21 videos & annotations (large files)
+# Dataset - AIC21 videos & annotations (large files)
 # ============================================================
-dtc_counting/data/
-# If you want to include specific small config files, uncomment:
-# !dtc_counting/data/AIC21_Track1_Vehicle_Counting/ROIs/
-# !dtc_counting/data/AIC21_Track1_Vehicle_Counting/movement_description/
+dtc_counting/data/*
+# Keep small camera config/sample files that are needed for reproducible demos.
+!dtc_counting/data/AIC21_Track1_Vehicle_Counting/
+dtc_counting/data/AIC21_Track1_Vehicle_Counting/*
+!dtc_counting/data/AIC21_Track1_Vehicle_Counting/ROIs/
+dtc_counting/data/AIC21_Track1_Vehicle_Counting/ROIs/*
+!dtc_counting/data/AIC21_Track1_Vehicle_Counting/ROIs/cam_5.txt
+!dtc_counting/data/AIC21_Track1_Vehicle_Counting/MOI_vectors/
+dtc_counting/data/AIC21_Track1_Vehicle_Counting/MOI_vectors/*
+!dtc_counting/data/AIC21_Track1_Vehicle_Counting/MOI_vectors/cam_5.txt
+!dtc_counting/data/AIC21_Track1_Vehicle_Counting/movement_description/
+dtc_counting/data/AIC21_Track1_Vehicle_Counting/movement_description/*
+!dtc_counting/data/AIC21_Track1_Vehicle_Counting/movement_description/cam_5.txt
+!dtc_counting/data/AIC21_Track1_Vehicle_Counting/counting_gt_sample/
+dtc_counting/data/AIC21_Track1_Vehicle_Counting/counting_gt_sample/*
+!dtc_counting/data/AIC21_Track1_Vehicle_Counting/counting_gt_sample/counting_example_cam_5_1min.csv
 
 # ============================================================
 # Generated outputs (CSVs, result videos, overlays)
@@ -51,8 +63,11 @@ dtc_counting/outputs/
 # Keep the directory marker:
 !dtc_counting/outputs/.gitkeep
 
+# Local copied demo notes / scratch annotations
+dtc_counting/demo/
+
 # ============================================================
-# Raw video files (large — use Git LFS if needed)
+# Raw video files (large - use Git LFS if needed)
 # ============================================================
 *.mp4
 *.avi
@@ -63,7 +78,7 @@ dtc_counting/outputs/
 *.webm
 
 # ============================================================
-# Model weights — KEEP by default (user choice)
+# Model weights - KEEP by default (user choice)
 # sam_b.pt is excluded: 357MB, exceeds GitHub 100MB file limit
 # Download from: https://dl.fbaipublicfiles.com/segment_anything/sam_vit_b_01ec64.pth
 # ============================================================
@@ -139,9 +154,11 @@ $RECYCLE.BIN/
 *.orig
 logs/
 log/
+docs/*_backup.docx
+docs/*_before_*_fix.docx
 
 # ============================================================
-# HuggingFace cache (downloaded models — large)
+# HuggingFace cache (downloaded models - large)
 # ============================================================
 # These are stored in ~/.cache/huggingface/ by default,
 # not in the project, so usually no need to gitignore.
@@ -160,4 +177,5 @@ huggingface_cache/
 *.gif
 # Exception: keep images committed to the repo (e.g. docs/images/)
 !docs/
+!docs/workflow_diagram.png
 !dtc_counting/image/README/

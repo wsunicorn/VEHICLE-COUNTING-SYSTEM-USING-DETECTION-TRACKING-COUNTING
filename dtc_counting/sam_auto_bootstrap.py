@@ -68,6 +68,7 @@ def score_road_mask(
     mask: np.ndarray,
     frame_h: int,
     frame_w: int,
+    frame_bgr: Optional[np.ndarray] = None,
     top_margin: float = 0.15,
     min_area_frac: float = 0.02,
     max_area_frac: float = 0.80,
@@ -128,16 +129,103 @@ def score_road_mask(
     aspect = bbox_w / max(1, bbox_h)
     elongation_score = min(1.0, aspect / 2.0)
 
+    color_score = 0.5
+    if frame_bgr is not None:
+        hsv = cv2.cvtColor(frame_bgr, cv2.COLOR_BGR2HSV)
+        mask_bool = mask > 0
+        hsv_px = hsv[mask_bool]
+        bgr_px = frame_bgr[mask_bool].astype(np.float32)
+        if len(hsv_px) > 0:
+            hue = hsv_px[:, 0]
+            sat = hsv_px[:, 1]
+            val = hsv_px[:, 2]
+            b = bgr_px[:, 0]
+            g = bgr_px[:, 1]
+            r = bgr_px[:, 2]
+
+            greenish = (
+                (hue >= 35) & (hue <= 95) &
+                (sat > 35) &
+                (g > r * 1.08) &
+                (g > b * 1.04)
+            )
+            green_ratio = float(np.mean(greenish))
+            low_sat_ratio = float(np.mean(sat < 55))
+            channel_spread = np.maximum.reduce([r, g, b]) - np.minimum.reduce([r, g, b])
+            gray_ratio = float(np.mean((channel_spread < 35) | (sat < 45)))
+            dark_valid_ratio = float(np.mean((val > 25) & (val < 245)))
+
+            # A low, wide grass mask looks geometrically road-like. Reject it
+            # before scoring so rainy cameras do not bootstrap the lawn.
+            if green_ratio > 0.25 and gray_ratio < 0.55:
+                return -1.0
+            color_score = max(
+                0.0,
+                min(1.0, 0.45 * low_sat_ratio + 0.35 * gray_ratio + 0.20 * dark_valid_ratio - 1.10 * green_ratio),
+            )
+
     # Weighted combination
     score = (
-        0.25 * area_score +
-        0.20 * vertical_score +
-        0.25 * lower_coverage +
-        0.15 * width_score +
-        0.15 * elongation_score
+        0.20 * area_score +
+        0.15 * vertical_score +
+        0.20 * lower_coverage +
+        0.12 * width_score +
+        0.13 * elongation_score +
+        0.20 * color_score
     )
 
     return score
+
+
+def build_color_road_mask(
+    frame_bgr: np.ndarray,
+    top_margin: float = 0.15,
+    min_area_frac: float = 0.02,
+) -> Optional[np.ndarray]:
+    """Fallback road mask from low-saturation, non-green asphalt-like pixels."""
+    h, w = frame_bgr.shape[:2]
+    hsv = cv2.cvtColor(frame_bgr, cv2.COLOR_BGR2HSV)
+    b = frame_bgr[:, :, 0].astype(np.float32)
+    g = frame_bgr[:, :, 1].astype(np.float32)
+    r = frame_bgr[:, :, 2].astype(np.float32)
+    hue = hsv[:, :, 0]
+    sat = hsv[:, :, 1]
+    val = hsv[:, :, 2]
+
+    yy = np.arange(h)[:, None]
+    lower_frame = yy >= int(h * top_margin)
+    greenish = (
+        (hue >= 35) & (hue <= 95) &
+        (sat > 35) &
+        (g > r * 1.08) &
+        (g > b * 1.04)
+    )
+    channel_spread = np.maximum.reduce([r, g, b]) - np.minimum.reduce([r, g, b])
+    asphalt_like = ((sat < 65) | (channel_spread < 42)) & (val > 25) & (val < 245)
+    mask = (lower_frame & asphalt_like & ~greenish).astype(np.uint8)
+
+    kernel_close = np.ones((35, 35), np.uint8)
+    kernel_open = np.ones((9, 9), np.uint8)
+    mask = cv2.morphologyEx(mask, cv2.MORPH_OPEN, kernel_open, iterations=1)
+    mask = cv2.morphologyEx(mask, cv2.MORPH_CLOSE, kernel_close, iterations=2)
+
+    num_labels, labels, stats, _ = cv2.connectedComponentsWithStats(mask, connectivity=8)
+    if num_labels <= 1:
+        return None
+    min_area = max(800, int(h * w * min_area_frac))
+    components = [
+        (idx, int(stats[idx, cv2.CC_STAT_AREA]))
+        for idx in range(1, num_labels)
+        if int(stats[idx, cv2.CC_STAT_AREA]) >= min_area
+    ]
+    if not components:
+        return None
+    components.sort(key=lambda item: item[1], reverse=True)
+    keep = {idx for idx, _ in components[:3]}
+    out = np.zeros((h, w), dtype=np.uint8)
+    for idx in keep:
+        out[labels == idx] = 1
+    return out
 
 
 # ──────────────────────────────────────────────────────────────────
@@ -212,6 +300,36 @@ def pca_line(points_xy: np.ndarray) -> Tuple[np.ndarray, np.ndarray]:
     return p1, p2
 
 
+def normalize_vectors_2d(arr: np.ndarray, dim: int = 4) -> np.ndarray:
+    """Return an Nx4 vector matrix even when OpenCV returns a transposed center."""
+    arr = np.asarray(arr, dtype=np.float32)
+    if arr.size == 0:
+        return np.zeros((0, dim), dtype=np.float32)
+    if arr.ndim == 1:
+        arr = arr.reshape(1, -1)
+    if arr.ndim == 2 and arr.shape[1] == 1 and arr.shape[0] == dim:
+        arr = arr.reshape(1, dim)
+    if arr.ndim == 3 and arr.shape[1] == 1:
+        arr = arr[:, 0, :]
+    if arr.ndim != 2:
+        return np.zeros((0, dim), dtype=np.float32)
+    if arr.shape[1] < dim:
+        pad = np.zeros((arr.shape[0], dim - arr.shape[1]), dtype=np.float32)
+        arr = np.hstack([arr, pad])
+    return arr[:, :dim]
+
+
+def sort_vector_centers(centers: np.ndarray) -> np.ndarray:
+    centers = normalize_vectors_2d(centers, dim=4)
+    if centers.shape[0] == 0:
+        return centers
+    angles = np.arctan2(
+        centers[:, 3] - centers[:, 1],
+        centers[:, 2] - centers[:, 0],
+    )
+    return centers[np.argsort(angles)]
+
+
 def extract_moi_vectors(
     masks: List[np.ndarray],
     moi_count: int,
@@ -233,22 +351,18 @@ def extract_moi_vectors(
         vectors.append(np.array([p1[0], p1[1], p2[0], p2[1]], dtype=np.float32))
 
     if not vectors:
-        # Generate default radial vectors from frame center
-        return {i + 1: [0.0, 0.0, 0.0, 0.0] for i in range(moi_count)}
+        return {}
 
-    data = np.vstack(vectors).astype(np.float32)
-    k = max(1, min(moi_count, len(data)))
-
-    criteria = (cv2.TERM_CRITERIA_EPS + cv2.TERM_CRITERIA_MAX_ITER, 100, 0.1)
-    _, _, centers = cv2.kmeans(data, k, None, criteria, 10, cv2.KMEANS_PP_CENTERS)
-
-    # Sort by direction angle for stable indexing
-    angles = np.arctan2(
-        centers[:, 3] - centers[:, 1],
-        centers[:, 2] - centers[:, 0],
-    )
-    order = np.argsort(angles)
-    centers = centers[order]
+    data = normalize_vectors_2d(np.vstack(vectors), dim=4)
+    if data.shape[0] == 0:
+        return {}
+    if data.shape[0] == 1:
+        centers = data
+    else:
+        k = max(1, min(moi_count, len(data)))
+        criteria = (cv2.TERM_CRITERIA_EPS + cv2.TERM_CRITERIA_MAX_ITER, 100, 0.1)
+        _, _, centers = cv2.kmeans(data, k, None, criteria, 10, cv2.KMEANS_PP_CENTERS)
+        centers = sort_vector_centers(centers)
 
     moi_vectors: Dict[int, List[float]] = {}
     for idx, c in enumerate(centers, start=1):
@@ -315,6 +429,7 @@ def main() -> None:
     for mask in all_masks:
         score = score_road_mask(
             mask, h, w,
+            frame_bgr=frame,
             top_margin=args.top_margin,
             min_area_frac=args.min_area_frac,
             max_area_frac=args.max_area_frac,
@@ -327,12 +442,22 @@ def main() -> None:
     road_masks = [m for _, m in scored_masks[:args.max_masks]]
     print(f"[sam-auto] Kept {len(road_masks)} road-surface masks (from {len(scored_masks)} candidates)")
 
+    used_full_frame_fallback = False
+    used_color_fallback = False
+    if not road_masks:
+        color_mask = build_color_road_mask(frame, top_margin=args.top_margin, min_area_frac=args.min_area_frac)
+        if color_mask is not None:
+            road_masks = [color_mask]
+            used_color_fallback = True
+            print("[sam-auto] SAM masks did not pass road-color checks. Using color road-mask fallback.")
+
     if not road_masks:
         print("[sam-auto] WARNING: No road masks found. Using full-frame ROI fallback.")
         roi_poly = np.array(
             [[0, 0], [w - 1, 0], [w - 1, h - 1], [0, h - 1]], dtype=np.int32
         )
         moi_vectors: Dict[int, List[float]] = {}
+        used_full_frame_fallback = True
     else:
         # ── Step 3: Build ROI polygon ─────────────────────────────
         roi_poly = masks_to_roi_polygon(road_masks, h, w, args.roi_expand)
@@ -342,10 +467,37 @@ def main() -> None:
         moi_vectors = extract_moi_vectors(road_masks, args.moi_count)
         print(f"[sam-auto] MOI vectors: {len(moi_vectors)}")
 
+    xs = roi_poly[:, 0].astype(float)
+    ys = roi_poly[:, 1].astype(float)
+    width_ratio = (xs.max() - xs.min()) / max(1.0, float(w - 1))
+    height_ratio = (ys.max() - ys.min()) / max(1.0, float(h - 1))
+    full_like = used_full_frame_fallback or (width_ratio > 0.98 and height_ratio > 0.98)
+    few_moi = 0 < len(moi_vectors) < min(max(args.moi_count, 1), 3)
+    quality_status = "low_confidence" if full_like or used_color_fallback or len(moi_vectors) == 0 or few_moi else "ok"
+    quality_reason = ""
+    if full_like:
+        quality_reason = "SAM Automatic produced a full-frame-like ROI."
+    elif used_color_fallback:
+        quality_reason = "SAM road-mask scoring rejected likely vegetation; used color fallback."
+    elif len(moi_vectors) == 0:
+        quality_reason = "SAM Automatic produced no valid MOI vectors."
+    elif few_moi:
+        quality_reason = "SAM Automatic produced too few MOI vectors from a single frame."
+
     # ── Step 5: Write JSON ────────────────────────────────────────
     payload = {
         "roi": roi_poly.astype(float).tolist(),
         "moi_vectors": {str(k): v for k, v in moi_vectors.items()},
+        "quality": {
+            "status": quality_status,
+            "reason": quality_reason,
+            "is_full_frame_fallback": bool(full_like),
+            "used_color_fallback": bool(used_color_fallback),
+            "road_masks_used": len(road_masks),
+            "valid_moi_count": len(moi_vectors),
+            "roi_width_ratio": round(float(width_ratio), 4),
+            "roi_height_ratio": round(float(height_ratio), 4),
+        },
         "note": (
             "Auto-generated by sam_auto_bootstrap.py (SAM Automatic mode, no detector). "
             f"ROI has {len(roi_poly)} vertices. "

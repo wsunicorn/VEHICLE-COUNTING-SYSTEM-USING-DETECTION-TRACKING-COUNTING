@@ -8,6 +8,7 @@ import traceback
 from collections import Counter
 from typing import Dict, Iterable, List, Tuple
 
+from moi_utils import align_to_reference, load_moi_vectors, write_moi_vectors
 
 Event = Tuple[int, int, int]
 
@@ -30,6 +31,7 @@ def parse_args() -> argparse.Namespace:
         default="data/AIC21_Track1_Vehicle_Counting_Bosung/movement_description/cam_5.txt",
         help="movement_description file path.",
     )
+    parser.add_argument("--moi-vectors", default="", help="Optional official/reference MOI vectors for baseline 1 and alignment.")
     parser.add_argument(
         "--gt-csv",
         default="data/AIC21_Track1_Vehicle_Counting_Bosung/counting_gt_sample/counting_example_cam_5_1min.csv",
@@ -38,6 +40,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--video-clip-id", type=int, default=10, help="video_clip_id value in predictions.")
     parser.add_argument("--imgsz", type=int, default=1280, help="YOLO inference image size.")
     parser.add_argument("--conf", type=float, default=0.25, help="YOLO confidence threshold.")
+    parser.add_argument("--class-conf", default="", help="Optional per-class confidence overrides, e.g. car=0.25,truck=0.45.")
     parser.add_argument(
         "--mining-frames",
         type=int,
@@ -103,8 +106,8 @@ def summarize_counts(events: Iterable[Event]) -> Counter:
 
 
 def evaluate(gt_events: List[Event], pred_events: List[Event]) -> Dict[str, float]:
-    gt_counter = Counter(gt_events)
-    pred_counter = Counter(pred_events)
+    gt_counter = summarize_counts(gt_events)
+    pred_counter = summarize_counts(pred_events)
 
     tp = 0
     for key in set(gt_counter.keys()) | set(pred_counter.keys()):
@@ -133,21 +136,30 @@ def evaluate(gt_events: List[Event], pred_events: List[Event]) -> Dict[str, floa
     }
 
 
-def write_roi_and_moi_from_json(json_path: str, roi_txt: str, moi_txt: str) -> None:
+def write_roi_and_moi_from_json(json_path: str, roi_txt: str, moi_txt: str, reference_moi_path: str = "") -> None:
     with open(json_path, "r", encoding="utf-8") as f:
         payload = json.load(f)
 
     roi = payload.get("roi", [])
-    moi_vectors = payload.get("moi_vectors", {})
+    moi_vectors = {}
+    for key, vec in payload.get("moi_vectors", {}).items():
+        if len(vec) != 4:
+            continue
+        x1, y1, x2, y2 = [float(v) for v in vec]
+        if ((x2 - x1) ** 2 + (y2 - y1) ** 2) ** 0.5 < 1e-6:
+            continue
+        moi_vectors[int(key)] = ((x1, y1), (x2, y2))
 
     with open(roi_txt, "w", encoding="utf-8") as f:
         for p in roi:
             f.write(f"{p[0]},{p[1]}\n")
 
-    ordered = sorted((int(k), v) for k, v in moi_vectors.items())
-    with open(moi_txt, "w", encoding="utf-8") as f:
-        for mid, vec in ordered:
-            f.write(f"{mid},{vec[0]},{vec[1]},{vec[2]},{vec[3]}\n")
+    if reference_moi_path:
+        aligned = align_to_reference(moi_vectors, load_moi_vectors(reference_moi_path))
+        if aligned:
+            moi_vectors = aligned
+
+    write_moi_vectors(moi_txt, moi_vectors)
 
 
 def main() -> None:
@@ -157,9 +169,8 @@ def main() -> None:
     py = sys.executable
     gt_events = read_events(args.gt_csv)
 
-    b1_csv = os.path.join(args.output_dir, "baseline1_angle_fallback.csv")
-    run_cmd(
-        [
+    b1_csv = os.path.join(args.output_dir, "baseline1_official_moi.csv" if args.moi_vectors else "baseline1_angle_fallback.csv")
+    b1_cmd = [
             py,
             "run_dtc_counting.py",
             "--video",
@@ -176,10 +187,14 @@ def main() -> None:
             str(args.imgsz),
             "--conf",
             str(args.conf),
+            "--class-conf",
+            args.class_conf,
             "--output-csv",
             b1_csv,
-        ]
-    )
+    ]
+    if args.moi_vectors:
+        b1_cmd.extend(["--moi-vectors", args.moi_vectors])
+    run_cmd(b1_cmd)
 
     b2_moi = os.path.join(args.output_dir, "baseline2_moi_from_tracks.txt")
     run_cmd(
@@ -202,10 +217,18 @@ def main() -> None:
             str(args.imgsz),
             "--conf",
             str(args.conf),
+            "--class-conf",
+            args.class_conf,
         ]
     )
 
     b2_csv = os.path.join(args.output_dir, "baseline2_track_moi.csv")
+    b2_moi_for_counting = b2_moi
+    if args.moi_vectors:
+        aligned = align_to_reference(load_moi_vectors(b2_moi), load_moi_vectors(args.moi_vectors))
+        if aligned:
+            b2_moi_for_counting = os.path.join(args.output_dir, "baseline2_moi_from_tracks_aligned.txt")
+            write_moi_vectors(b2_moi_for_counting, aligned)
     run_cmd(
         [
             py,
@@ -219,20 +242,23 @@ def main() -> None:
             "--movement-description",
             args.movement_description,
             "--moi-vectors",
-            b2_moi,
+            b2_moi_for_counting,
             "--video-clip-id",
             str(args.video_clip_id),
             "--imgsz",
             str(args.imgsz),
             "--conf",
             str(args.conf),
+            "--class-conf",
+            args.class_conf,
             "--output-csv",
             b2_csv,
         ]
     )
 
     results: Dict[str, Dict[str, float]] = {}
-    results["baseline1_angle_fallback"] = evaluate(gt_events, read_events(b1_csv))
+    b1_key = "baseline1_official_moi" if args.moi_vectors else "baseline1_angle_fallback"
+    results[b1_key] = evaluate(gt_events, read_events(b1_csv))
     results["baseline2_track_moi"] = evaluate(gt_events, read_events(b2_csv))
 
     if not args.skip_baseline3:
@@ -305,7 +331,7 @@ def main() -> None:
 
         b3_roi = os.path.join(args.output_dir, "baseline3_roi_from_sam.txt")
         b3_moi = os.path.join(args.output_dir, "baseline3_moi_from_sam.txt")
-        write_roi_and_moi_from_json(b3_json, b3_roi, b3_moi)
+        write_roi_and_moi_from_json(b3_json, b3_roi, b3_moi, args.moi_vectors)
 
         b3_csv = os.path.join(args.output_dir, "baseline3_grounded_sam_moi.csv")
         run_cmd(
@@ -328,6 +354,8 @@ def main() -> None:
                 str(args.imgsz),
                 "--conf",
                 str(args.conf),
+                "--class-conf",
+                args.class_conf,
                 "--output-csv",
                 b3_csv,
             ]

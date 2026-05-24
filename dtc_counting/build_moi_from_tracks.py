@@ -6,7 +6,7 @@ import cv2
 import numpy as np
 from ultralytics import YOLO
 
-from run_dtc_counting import MultiStepTracker, collect_detections, infer_movement_count, load_polygon, point_in_polygon
+from run_dtc_counting import MultiStepTracker, collect_detections, infer_movement_count, load_polygon, parse_class_conf, point_in_polygon
 
 Point = Tuple[float, float]
 
@@ -29,6 +29,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--min-vector-norm", type=float, default=40.0, help="Minimum vector length in pixels.")
     parser.add_argument("--imgsz", type=int, default=1280, help="YOLO inference image size.")
     parser.add_argument("--conf", type=float, default=0.25, help="YOLO confidence threshold.")
+    parser.add_argument("--class-conf", default="", help="Optional per-class confidence overrides, e.g. car=0.25,truck=0.45.")
     return parser.parse_args()
 
 
@@ -101,6 +102,7 @@ def main() -> None:
 
     model   = YOLO(args.weights)
     tracker = MultiStepTracker()
+    class_conf = parse_class_conf(args.class_conf)
     finished_tracks: list = []
 
     cap = cv2.VideoCapture(args.video)
@@ -113,7 +115,7 @@ def main() -> None:
         if not ok:
             break
 
-        detections = collect_detections(model, frame, args.conf, args.imgsz, roi_polygon)
+        detections = collect_detections(model, frame, args.conf, args.imgsz, roi_polygon, class_conf)
         tracks     = tracker.update(detections, frame_idx)
 
         for tr in tracks.values():

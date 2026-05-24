@@ -12,9 +12,6 @@
   <link rel="stylesheet" href="{% static 'counter/style.css' %}" />
 </head>
 <body>
-  <div class="bg-shape bg-shape-1" aria-hidden="true"></div>
-  <div class="bg-shape bg-shape-2" aria-hidden="true"></div>
-
   <header class="topbar">
     <div class="topbar-inner">
       <a class="topbar-brand" href="{% url 'dashboard' %}">
@@ -99,8 +96,16 @@
             <div class="form-group-divider"></div>
           </div>
 
+          <label class="checkbox-wrap demo-preset" style="grid-column:1/-1;">
+            {{ form.use_demo_files }}
+            <div class="checkbox-text">
+              <span class="field-label">Dùng bộ demo cam_5 có sẵn</span>
+              <p class="field-hint">Chạy ngay video mẫu, weights, ROI, MOI và movement description trong project. Tắt mục này nếu muốn upload dữ liệu riêng.</p>
+            </div>
+          </label>
+
           <label class="field-wrap">
-            <span class="field-label">Video nguồn <span class="field-badge badge-required">bắt buộc</span></span>
+            <span class="field-label">Video nguồn <span class="field-badge badge-optional">khi không dùng demo</span></span>
             {{ form.video_upload }}
             <p class="field-hint">File video (.mp4, .avi…) cần đếm phương tiện.</p>
             {% if form.video_upload.errors %}<small class="field-error">{{ form.video_upload.errors|striptags }}</small>{% endif %}
@@ -122,7 +127,7 @@
           </div>
 
           <label class="field-wrap">
-            <span class="field-label">Model Weights <span class="field-badge badge-required">bắt buộc</span></span>
+            <span class="field-label">Model Weights <span class="field-badge badge-optional">khi không dùng demo</span></span>
             {{ form.weights_upload }}
             <p class="field-hint">File trọng số YOLO (.pt), ví dụ <code>best.pt</code>.</p>
             {% if form.weights_upload.errors %}<small class="field-error">{{ form.weights_upload.errors|striptags }}</small>{% endif %}
@@ -227,6 +232,12 @@
           </label>
 
           <label class="field-wrap">
+            <span class="field-label">Ngưỡng theo lớp</span>
+            {{ form.class_conf }}
+            <p class="field-hint">Khuyến nghị demo: <code>car=0.25,truck=0.75</code> để giảm false truck.</p>
+          </label>
+
+          <label class="field-wrap">
             <span class="field-label">Image size (imgsz)</span>
             {{ form.imgsz }}
             <p class="field-hint">960 chất lượng tốt, 640 nhanh hơn.</p>
@@ -318,11 +329,13 @@
         {% if uploaded_files %}
         <h3 class="subheading">File đã sử dụng</h3>
         <div class="upload-meta">
+          <p><strong>Nguồn:</strong> {{ uploaded_files.source }}</p>
           <p><strong>Video:</strong> {{ uploaded_files.video }}</p>
           <p><strong>Weights:</strong> {{ uploaded_files.weights }}</p>
           <p><strong>ROI:</strong> {{ uploaded_files.roi }}</p>
           <p><strong>Movement:</strong> {{ uploaded_files.movement }}</p>
           <p><strong>MOI:</strong> {{ uploaded_files.moi }}</p>
+          <p><strong>Class threshold:</strong> {{ uploaded_files.class_conf }}</p>
         </div>
         {% endif %}
         {% if summary %}
@@ -476,6 +489,20 @@
       maxFramesInput.disabled = !quickCb.checked;
     }
     if (quickCb) { quickCb.addEventListener('change', syncMaxFrames); syncMaxFrames(); }
+
+    const demoCb = document.querySelector('input[name="use_demo_files"]');
+    function syncDemoPreset() {
+      if (!demoCb) return;
+      ['video_upload', 'weights_upload', 'movement_upload', 'roi_upload', 'moi_upload'].forEach(name => {
+        const input = document.querySelector(`input[name="${name}"]`);
+        const wrap = input && input.closest('.field-wrap');
+        if (wrap) wrap.style.opacity = demoCb.checked ? '0.45' : '1';
+        if (input) input.disabled = demoCb.checked;
+      });
+      const canvasSection = document.getElementById('canvasSection');
+      if (canvasSection && demoCb.checked) canvasSection.style.display = 'none';
+    }
+    if (demoCb) { demoCb.addEventListener('change', syncDemoPreset); syncDemoPreset(); }
 
     /* ── Form submit ── */
     const manualForm = document.getElementById('manualForm');

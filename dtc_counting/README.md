@@ -5,7 +5,7 @@ Tài liệu này hướng dẫn đầy đủ cách chạy hệ thống Detection
 - YOLO detector (`best2.pt`) cho car/truck
 - Tracker Kalman 8D + Hungarian matching 3 bước (IoU, Mahalanobis, Histogram)
 - Counter theo ROI/MOI, có hỗ trợ eROI và iROI
-- Baseline 3 với Grounded DINO + SAM để gợi ý ROI/MOI
+- Bootstrap ROI/MOI bằng SAM Automatic, Grounded DINO + SAM, hoặc trajectory-guided SAM fallback
 - Web demo local bằng Django
 
 ## 1) Cấu trúc quan trọng
@@ -13,7 +13,8 @@ Tài liệu này hướng dẫn đầy đủ cách chạy hệ thống Detection
 Trong thư mục `dtc_counting`:
 
 - `run_dtc_counting.py`: pipeline đếm chính theo DTC
-- `run_three_baselines.py`: chạy 3 baseline tự động
+- `run_three_baselines.py`: chạy nhanh các baseline cũ
+- `run_full_comparison.py`: chạy baseline có evaluator mới, MOI alignment và quality checks
 - `build_moi_from_tracks.py`: sinh MOI từ trajectory
 - `grounded_sam_bootstrap.py`: Grounded DINO + SAM bootstrap ROI/MOI
 - `sam_bootstrap.py`: bản bootstrap ROI/MOI theo SAM (fallback)
@@ -48,18 +49,18 @@ File CSV đầu ra theo format AI City:
 - `movement_id`
 - `vehicle_class_id` (1=car, 2=truck)
 
-## 4) Chạy 3 baseline để so sánh
+## 4) Chạy baseline để so sánh
 
-Chạy đầy đủ 3 baseline:
+Khuyến nghị dùng `run_full_comparison.py` vì script này hỗ trợ align MOI tự sinh về MOI chuẩn, threshold riêng theo class và bỏ qua bootstrap low-confidence:
 
 ```powershell
-python run_three_baselines.py
+python run_full_comparison.py --video data/AIC21_Track1_Vehicle_Counting/counting_gt_sample/counting_example_cam_5_1min.mp4 --weights ../weights/best2.pt --roi-file data/AIC21_Track1_Vehicle_Counting/ROIs/cam_5.txt --movement-description data/AIC21_Track1_Vehicle_Counting/movement_description/cam_5.txt --moi-vectors data/AIC21_Track1_Vehicle_Counting/MOI_vectors/cam_5.txt --gt-csv data/AIC21_Track1_Vehicle_Counting/counting_gt_sample/counting_example_cam_5_1min.csv --class-conf car=0.25,truck=0.75
 ```
 
-Chạy nhanh (bỏ baseline 3):
+Chạy nhanh chỉ B1/B2:
 
 ```powershell
-python run_three_baselines.py --skip-baseline3
+python run_full_comparison.py --video data/AIC21_Track1_Vehicle_Counting/counting_gt_sample/counting_example_cam_5_1min.mp4 --weights ../weights/best2.pt --roi-file data/AIC21_Track1_Vehicle_Counting/ROIs/cam_5.txt --movement-description data/AIC21_Track1_Vehicle_Counting/movement_description/cam_5.txt --moi-vectors data/AIC21_Track1_Vehicle_Counting/MOI_vectors/cam_5.txt --gt-csv data/AIC21_Track1_Vehicle_Counting/counting_gt_sample/counting_example_cam_5_1min.csv --skip-sam-auto --skip-sam-yolo --class-conf car=0.25,truck=0.75
 ```
 
 Giảm thời gian cho baseline 2:
@@ -68,15 +69,21 @@ Giảm thời gian cho baseline 2:
 python run_three_baselines.py --mining-frames 400 --imgsz 640
 ```
 
-Chọn chế độ baseline 3:
+Script cũ `run_three_baselines.py` vẫn dùng được cho test nhanh:
 
-- Grounded DINO + SAM (mặc định):
+```powershell
+python run_three_baselines.py --moi-vectors data/AIC21_Track1_Vehicle_Counting/MOI_vectors/cam_5.txt --class-conf car=0.25,truck=0.75 --skip-baseline3
+```
+
+Chọn chế độ bootstrap:
+
+- Grounded DINO + SAM:
 
 ```powershell
 python run_three_baselines.py --baseline3-mode grounded-sam
 ```
 
-- SAM fallback:
+- Trajectory-guided SAM fallback:
 
 ```powershell
 python run_three_baselines.py --baseline3-mode sam
@@ -84,8 +91,9 @@ python run_three_baselines.py --baseline3-mode sam
 
 Output trong `outputs/baselines/`:
 
-- `baseline1_angle_fallback.csv`
+- `baseline1_official_moi.csv` hoặc `baseline1_angle_fallback.csv`
 - `baseline2_moi_from_tracks.txt`
+- `baseline2_moi_from_tracks_aligned.txt` nếu có `--moi-vectors`
 - `baseline2_track_moi.csv`
 - `baseline3_grounded_sam_moi.csv` (nếu có)
 - `baseline_summary.json`
@@ -114,41 +122,24 @@ Phần đã bám sát paper:
 Phần còn có thể nâng cấp tiếp:
 
 - iROI/eROI đã hỗ trợ tham số, cần tạo file cho từng camera để đúng setup paper
-- Đánh giá S1/nwRMSE theo đúng công thức challenge có thể bổ sung thêm script riêng
+- `evaluate_counting.py` đã đọc được CSV local và TXT kiểu AI City, đồng thời tính effectiveness theo cumulative segment weighting. S1 efficiency vẫn là xấp xỉ nếu không có Efficiency Base/script chính thức.
 
 ## 7) Chạy Web Demo local (Django)
-
-### 7.1 Khởi tạo DB
 
 ```powershell
 cd web_demo
 python manage.py migrate
-```
-
-### 7.2 Chạy server
-
-```powershell
 python manage.py runserver
 ```
 
-Mở trình duyệt:
+Mở `http://127.0.0.1:8000/`.
 
-- `http://127.0.0.1:8000/`
+Web demo hiện có hai chế độ:
 
-### 7.3 Cách demo trên web
+- **Thủ công:** khuyến nghị khi trình bày. Mặc định bật "Dùng bộ demo cam_5 có sẵn", dùng video mẫu, `best2.pt`, ROI, MOI chuẩn và `class_conf=car=0.25,truck=0.75`.
+- **Tự động SAM:** dùng Grounding-DINO + SAM để bootstrap ROI/MOI. Nếu model/cache chưa sẵn, hệ thống báo warning/fallback rõ ràng thay vì gắn nhãn nhầm.
 
-1. Điền đường dẫn video, weights, ROI, movement_description
-2. Nếu muốn tự sinh ROI/MOI, tick "Tự sinh ROI/MOI bằng Grounded SAM"
-3. Bấm "Chạy Demo"
-4. Xem:
-   - ảnh overlay ROI/MOI (nếu bootstrap)
-   - video output đã vẽ box và count
-   - bảng tổng hợp đếm theo movement-class
-   - link tải CSV
-
-Kết quả web sẽ lưu trong:
-
-- `outputs/web_demo/<timestamp>/`
+Kết quả web lưu trong `web_demo/media/<timestamp>/`, gồm CSV, metadata và video visualize nếu bật.
 
 ## 8) Lỗi thường gặp
 

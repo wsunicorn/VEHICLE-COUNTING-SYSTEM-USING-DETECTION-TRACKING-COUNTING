@@ -72,37 +72,6 @@ body {
 }
 
 /* ── Background Decorations ────────────────────────────────── */
-.bg-shape {
-  position: fixed;
-  border-radius: 999px;
-  pointer-events: none;
-  z-index: 0;
-  transition: background 0.4s ease;
-}
-
-.bg-shape-1 {
-  width: 500px;
-  height: 500px;
-  top: -200px;
-  right: -120px;
-  background: radial-gradient(circle, rgba(18, 148, 107, 0.15) 0%, transparent 70%);
-}
-
-.bg-shape-2 {
-  width: 600px;
-  height: 600px;
-  bottom: -250px;
-  left: -150px;
-  background: radial-gradient(circle, rgba(14, 107, 168, 0.13) 0%, transparent 70%);
-}
-
-[data-theme="dark"] .bg-shape-1 {
-  background: radial-gradient(circle, rgba(18, 148, 107, 0.08) 0%, transparent 70%);
-}
-[data-theme="dark"] .bg-shape-2 {
-  background: radial-gradient(circle, rgba(14, 107, 168, 0.08) 0%, transparent 70%);
-}
-
 /* ── Topbar / Header ──────────────────────────────────────── */
 .topbar {
   position: sticky;
@@ -1623,4 +1592,31 @@ tbody tr:hover {
   h1 {
     font-size: 1.45rem;
   }
+}
+
+/* Demo cleanup */
+.hero {
+  padding: 26px 28px;
+}
+
+.hero-chips {
+  display: none;
+}
+
+.landing-hero {
+  padding: 34px 28px 28px !important;
+}
+
+.landing-hero h1 {
+  margin-bottom: 10px !important;
+}
+
+.mode-card p,
+.field-hint {
+  line-height: 1.45;
+}
+
+.demo-preset {
+  border-color: color-mix(in srgb, var(--brand-2) 45%, var(--line));
+  background: color-mix(in srgb, var(--brand-2) 8%, var(--card-solid));
 }

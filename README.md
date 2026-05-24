@@ -795,9 +795,9 @@ cv2.kmeans(data, k, criteria, 8, KMEANS_PP_CENTERS)
 
 ## 9. Bốn Baseline so sánh
 
-### Baseline 1 — Angle Fallback (từ Movement Description)
+### Baseline 1 — Manual ROI + MOI vectors chuẩn
 
-**Phương pháp:** Không dùng MOI vectors. Gán MOI bằng phân đoạn góc đều:
+**Phương pháp:** Dùng ROI thủ công của AI City và file `MOI_vectors/cam_5.txt` digitize từ ảnh `screen_shot_with_roi_and_movement/cam_5.jpg`. Nếu không truyền `--moi-vectors`, hệ thống mới rơi về angle fallback:
 
 ```python
 angle = atan2(end.y - start.y, end.x - start.x)
@@ -806,12 +806,12 @@ movement_id = int(((angle + π) / (2π)) * movement_count) + 1
 
 `movement_count` được đọc từ file `movement_description/cam_x.txt`.
 
-**Ưu điểm:** Không cần annotate MOI vectors, chạy nhanh.  
-**Nhược điểm:** Không phân biệt được 2 MOI có hướng gần nhau (ví dụ: đi thẳng và rẽ nhẹ).
+**Ưu điểm:** Có cùng ngữ nghĩa `movement_id` với GT khi file MOI được digitize đúng.
+**Nhược điểm:** Cần kiểm tra overlay thủ công vì cam fisheye làm các mũi tên cong khó biểu diễn bằng một vector thẳng.
 
 ### Baseline 2 — MOI Mining từ Trajectories
 
-**Phương pháp:** Chạy YOLO + lightweight centroid tracker trên N frames, lấy quỹ đạo xe trong ROI, cluster bằng K-Means++ → MOI vectors.
+**Phương pháp:** Chạy YOLO + tracker trên N frames, lấy quỹ đạo xe trong ROI, cluster bằng K-Means++ → MOI vectors. Khi có `--moi-vectors` tham chiếu, script sẽ align MOI tự sinh về ID chính thức trước khi evaluate.
 
 ```
 YOLO + CentroidTracker trên video
@@ -851,24 +851,24 @@ _TOP_MARGIN_FRAC  = 0.20   # bỏ qua 20% top frame (background xa)
 
 **Phương pháp:** Chạy nguyên bản Segment Anything Model (SAM) mà không cần text prompt hay detector nào để tự tìm đường.
 - Ưu điểm: Khởi chạy cực nhanh, độc lập.
-- Nhược điểm: Sai số lớn với các ngã tư phức tạp do heuristics có thể đoán sai vùng mặt đường.
+- Nhược điểm: Sai số lớn với các ngã tư phức tạp. Nếu SAM không tìm được road mask hoặc sinh ROI gần full-frame, output được đánh dấu `quality.status = low_confidence` và không nên đưa vào bảng kết quả chính.
 
-### Baseline 4 — SAM + YOLO-prompted (Grounded SAM Bootstrap)
+### Baseline 4 — Grounding DINO + SAM Bootstrap
 
-Xem chi tiết ở [Mục 8](#8-cải-tiến-grounded-sam-bootstrap). Chế độ này dùng Grounding DINO kết hợp SAM để tự động nội suy vùng đếm cực kỳ chuẩn xác.
+Xem chi tiết ở [Mục 8](#8-cải-tiến-grounded-sam-bootstrap). Chế độ này dùng Grounding DINO kết hợp SAM để gợi ý ROI/MOI. Nếu model Grounding DINO không có trong cache hoặc output low-confidence, dùng `--fallback-to-trajectory-sam` để chuyển sang trajectory-guided SAM và nhãn kết quả phải ghi rõ là fallback.
 
 ### Kết Quả Đánh Giá Tổng Thể (Cam_5_1min)
 
-Kết quả khi chạy `run_full_comparison.py` trên tập video mẫu `counting_example_cam_5_1min.mp4`:
+Kết quả local sau khi sửa evaluator, align MOI tự sinh, dùng `--class-conf car=0.25,truck=0.75`, và chạy `run_full_comparison.py --skip-sam-auto --skip-sam-yolo` trên `counting_example_cam_5_1min.mp4`:
 
 | Phương Pháp (Baseline) | Tổng Số Xe Thực Tế (GT) | Số Đếm Hệ Thống | nwRMSE ↓ | S1 Overall ↑ | Count Accuracy | MAE (Sai số/nhóm) |
 | :--- | :---: | :---: | :---: | :---: | :---: | :---: |
-| **B1:** Thủ Công ROI + Cung cấp sẵn MOIs | 96 | 145 | 1.1504 | 0.0876 | 48.96% | 5.087 |
-| **B2:** Thủ Công ROI + Track-Mined MOI | 96 | 145 | 1.6976 | 0.0663 | 48.96% | 7.260 |
-| **B3:** SAM Auto (Không dùng YOLO) | 96 | 211 | 2.2100 | 0.0209 | 0% | 10.391 |
-| **B4:** SAM Auto + YOLO Bootstrap | 96 | 154 | 1.9259 | 0.0727 | 39.58% | 6.500 |
+| **B1:** Manual ROI + MOI chuẩn | 96 | 95 | 0.2879 | 0.4985* | 98.96% | 3.32 |
+| **B2:** Manual ROI + Track-Mined MOI đã align | 96 | 95 | 0.4350 | 0.3955* | 98.96% | 5.35 |
+| **B3:** SAM Automatic | 96 | N/A | N/A | N/A | N/A | N/A |
+| **B4:** Grounding DINO + SAM | 96 | N/A | N/A | N/A | N/A | N/A |
 
-*(Lưu ý: B1 được sử dụng file tọa độ MOIs thủ công chuẩn xác, cho sai số thấp nhất. Video xuất ra được làm sạch hoàn toàn các nhãn bounding box, tracking line, mũi tên để tập trung hiển thị ROI và dòng xe chạy thực tế.)*
+*S1 hiện là local approximation vì efficiency chính thức cần Efficiency Base/script của AI City. B3/B4 không được điền bằng số cũ: SAM Automatic cũ rơi về full-frame ROI, còn B4 cũ là trajectory-guided SAM chứ không phải Grounding DINO + SAM.*
 
 ---
 

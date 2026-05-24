@@ -205,6 +205,17 @@ def _infer_movement_count_from_file(path: str) -> int:
     return max(movement_ids) if movement_ids else 8
 
 
+def _demo_paths(root_dir: Path) -> Dict[str, Path]:
+    data_root = root_dir / "data" / "AIC21_Track1_Vehicle_Counting"
+    return {
+        "video": data_root / "counting_gt_sample" / "counting_example_cam_5_1min.mp4",
+        "weights": root_dir.parent / "weights" / "best2.pt",
+        "roi": data_root / "ROIs" / "cam_5.txt",
+        "moi": data_root / "MOI_vectors" / "cam_5.txt",
+        "movement": data_root / "movement_description" / "cam_5.txt",
+    }
+
+
 # ── Background execution thread ────────────────────────────────────────────────
 
 def _execute_run(
@@ -285,33 +296,39 @@ def _execute_run(
                     grounded_sam_ok = True
                 except Exception as e:
                     _reg_log(run_id, f"  Grounded-SAM lỗi ({e}) → fallback sang SAM bootstrap…")
-                cmd_sam_boot = [
-                    py, "sam_bootstrap.py",
-                    "--video", video_path,
-                    "--weights", weights_path,
-                    "--output-json", str(b3_json),
-                    "--save-overlay", str(b3_overlay),
-                    "--roi-expand", "1.03",
-                    "--roi-shape", "rect",
-                    "--imgsz", str(data["imgsz"]),
-                    "--conf", str(data["conf"]),
-                    "--max-frames", str(bootstrap_frames),
-                ]
-                if moi_count > 0:
-                    cmd_sam_boot += ["--moi-count", str(moi_count)]
-                _popen_log(run_id, cmd_sam_boot, dtc_dir)
-                bootstrap_warning = (
-                    "Grounded-SAM gặp lỗi tải model/kết nối, đã tự động fallback sang SAM bootstrap. "
-                    f"Lệnh lỗi: {_cmd_to_text(cmd_boot)}"
-                )
+                    cmd_sam_boot = [
+                        py, "sam_bootstrap.py",
+                        "--video", video_path,
+                        "--weights", weights_path,
+                        "--output-json", str(b3_json),
+                        "--save-overlay", str(b3_overlay),
+                        "--roi-expand", "1.03",
+                        "--roi-shape", "rect",
+                        "--imgsz", str(data["imgsz"]),
+                        "--conf", str(data["conf"]),
+                        "--max-frames", str(bootstrap_frames),
+                    ]
+                    if moi_count > 0:
+                        cmd_sam_boot += ["--moi-count", str(moi_count)]
+                    _popen_log(run_id, cmd_sam_boot, dtc_dir)
+                    bootstrap_warning = (
+                        "Grounded-SAM gặp lỗi tải model/kết nối, đã tự động fallback sang SAM bootstrap. "
+                        f"Lệnh lỗi: {_cmd_to_text(cmd_boot)}"
+                    )
 
             # Validate ROI quality
             with open(b3_json, "r", encoding="utf-8") as f:
                 payload_probe = json.load(f)
+            quality = payload_probe.get("quality", {})
+            if quality.get("status") == "low_confidence":
+                bootstrap_warning = (
+                    (bootstrap_warning or "") + " "
+                    + (quality.get("reason") or "Bootstrap ROI/MOI có độ tin cậy thấp.")
+                ).strip()
             frame_w, frame_h = _get_video_size(video_path)
             q = _polygon_quality(payload_probe.get("roi", []), frame_w, frame_h)
             if q["ok"] < 0.5:
-                roi_rerun_frames = min(bootstrap_frames, 300)
+                roi_rerun_frames = min(bootstrap_frames, 120)
                 _reg_log(
                     run_id,
                     f"  ROI quá nhỏ/hẹp (area={q['area_ratio']:.3f}, w={q['width_ratio']:.3f}, h={q['height_ratio']:.3f}) → re-run SAM ({roi_rerun_frames} frame)…"
@@ -339,12 +356,41 @@ def _execute_run(
                 # Re-read after ROI re-run
                 with open(b3_json, "r", encoding="utf-8") as f:
                     payload_probe = json.load(f)
+                quality = payload_probe.get("quality", {})
 
-            # Validate MOI count — only re-run trajectory bootstrap if MOI is completely empty
-            # (Grounded-SAM works from a single frame and may legitimately find few MOI lanes;
-            #  trusting its output avoids an expensive extra tracking run.)
+            # Validate MOI count. SAM Automatic only sees one frame, so if it
+            # finds too few directions, switch to trajectory bootstrap.
             actual_moi = len(payload_probe.get("moi_vectors", {}))
+            few_sam_only_moi = bool(not use_grounding and 0 < actual_moi < 3)
             _reg_log(run_id, f"  Bootstrap tạo ra {actual_moi} MOI vectors.")
+            if few_sam_only_moi:
+                moi_rerun_frames = min(bootstrap_frames, 90)
+                expected_moi = moi_count if moi_count > 0 else 4
+                _reg_log(
+                    run_id,
+                    f"  SAM Automatic chỉ tạo {actual_moi} MOI -> re-run SAM trajectory ({moi_rerun_frames} frame, {expected_moi} clusters)..."
+                )
+                cmd_sam_moi = [
+                    py, "sam_bootstrap.py",
+                    "--video", video_path,
+                    "--weights", weights_path,
+                    "--output-json", str(b3_json),
+                    "--save-overlay", str(b3_overlay),
+                    "--moi-count", str(expected_moi),
+                    "--roi-expand", "1.03",
+                    "--roi-shape", "rect",
+                    "--imgsz", str(data["imgsz"]),
+                    "--conf", str(data["conf"]),
+                    "--max-frames", str(moi_rerun_frames),
+                ]
+                _popen_log(run_id, cmd_sam_moi, dtc_dir)
+                warn_moi = "SAM Automatic chỉ suy ra rất ít MOI, đã re-run SAM trajectory bootstrap để lấy hướng từ chuyển động xe."
+                bootstrap_warning = ((bootstrap_warning or "") + " " + warn_moi).strip()
+                with open(b3_json, "r", encoding="utf-8") as f:
+                    payload_probe = json.load(f)
+                actual_moi = len(payload_probe.get("moi_vectors", {}))
+                _reg_log(run_id, f"  Sau re-run MOI: {actual_moi} vectors.")
+                grounded_sam_ok = False
             if grounded_sam_ok and actual_moi < 3:
                 warn_few = (
                     f"Grounded-SAM chỉ phát hiện được {actual_moi} hướng MOI từ 1 frame tĩnh. "
@@ -353,7 +399,7 @@ def _execute_run(
                 bootstrap_warning = ((bootstrap_warning or "") + " " + warn_few).strip()
                 _reg_log(run_id, f"  ⚠ {warn_few}")
             if actual_moi == 0:
-                moi_rerun_frames = min(bootstrap_frames, 200)
+                moi_rerun_frames = min(bootstrap_frames, 120)
                 expected_moi = moi_count if moi_count > 0 else 8
                 _reg_log(run_id, f"  Không có MOI nào → re-run SAM trajectory ({moi_rerun_frames} frame, {expected_moi} clusters)…")
                 cmd_sam_moi = [
@@ -376,6 +422,10 @@ def _execute_run(
                     payload_probe = json.load(f)
                 actual_moi = len(payload_probe.get("moi_vectors", {}))
                 _reg_log(run_id, f"  Sau re-run MOI: {actual_moi} vectors.")
+                if actual_moi == 0:
+                    raise RuntimeError(
+                        "Bootstrap không sinh được MOI hợp lệ. Hãy chuyển sang chế độ thủ công hoặc upload file MOI."
+                    )
 
             roi_txt = out_dir / "roi_from_bootstrap.txt"
             moi_txt = out_dir / "moi_from_bootstrap.txt"
@@ -413,6 +463,7 @@ def _execute_run(
             "--roi-file", roi_file,
             "--video-clip-id", str(data["video_clip_id"]),
             "--conf", str(data["conf"]),
+            "--class-conf", data.get("class_conf", ""),
             "--imgsz", str(data["imgsz"]),
             "--frame-stride", str(data["frame_stride"]),
             "--output-csv", str(out_csv),
@@ -449,11 +500,13 @@ def _execute_run(
         if overlay_url:
             result_ctx["overlay_url"] = overlay_url
         result_ctx["uploaded_files"] = {
+            "source": "Bộ demo cam_5" if data.get("use_demo_files") else "File upload",
             "video": Path(video_path).name,
             "weights": Path(weights_path).name,
             "roi": Path(roi_file).name if roi_file else "(từ bootstrap)",
             "movement": Path(movement_path).name if movement_path else "(không dùng)",
             "moi": Path(moi_vectors_path).name if moi_vectors_path else "(không dùng)",
+            "class_conf": data.get("class_conf", ""),
         }
         if out_csv.exists():
             result_ctx["summary"] = _load_summary(str(out_csv))
@@ -530,7 +583,11 @@ def _rebuild_result_from_fs(run_id: str) -> Optional[dict]:
         "raw_video_url": raw_video_url,
         "csv_url": f"/media/{run_id}/counting_result.csv",
         "run_mode": meta.get("run_mode", "Full run"),
-        "uploaded_files": {"video": meta.get("video_name", "")},
+        "uploaded_files": {
+            "source": "Bộ demo cam_5" if meta.get("use_demo_files") else "File upload",
+            "video": meta.get("video_name", ""),
+            "class_conf": meta.get("class_conf", ""),
+        },
         "summary": _load_summary(str(csv_path)),
     }
 
@@ -576,66 +633,94 @@ def _launch_run(
     upload_dir = out_dir / "uploads"
     upload_dir.mkdir(parents=True, exist_ok=True)
 
-    video_path = _save_upload(
-        data["video_upload"],
-        upload_dir / f"video_{Path(data['video_upload'].name).name}",
-    )
-    weights_path = _save_upload(
-        data["weights_upload"],
-        upload_dir / f"weights_{Path(data['weights_upload'].name).name}",
-    )
-    movement_path = ""
-    if data.get("movement_upload"):
-        movement_path = _save_upload(
-            data["movement_upload"],
-            upload_dir / f"movement_{Path(data['movement_upload'].name).name}",
-        )
-
+    use_demo_files = bool(data.get("use_demo_files"))
     roi_file = ""
-    if data.get("roi_upload"):
-        roi_file = _save_upload(
-            data["roi_upload"],
-            upload_dir / f"roi_{Path(data['roi_upload'].name).name}",
-        )
-    elif (data.get("roi_json") or "").strip():
-        # ROI drawn interactively on the canvas
-        roi_points = json.loads(data["roi_json"])
-        roi_txt = upload_dir / "roi_drawn.txt"
-        with open(roi_txt, "w", encoding="utf-8") as f:
-            for p in roi_points:
-                f.write(f"{int(p[0])},{int(p[1])}\n")
-        roi_file = str(roi_txt)
-
+    movement_path = ""
     moi_vectors_path = ""
     moi_count_hint = 0
-    if data.get("moi_upload"):
-        moi_vectors_path = _save_upload(
-            data["moi_upload"],
-            upload_dir / f"moi_{Path(data['moi_upload'].name).name}",
-        )
-        try:
-            moi_count_hint = sum(1 for ln in open(moi_vectors_path, encoding="utf-8") if ln.strip())
-        except Exception:
-            pass
-    elif (data.get("moi_json") or "").strip():
-        # MOI drawn interactively on the canvas
-        moi_data = json.loads(data["moi_json"])
-        moi_count_hint = len(moi_data)
-        moi_txt = upload_dir / "moi_drawn.txt"
-        with open(moi_txt, "w", encoding="utf-8") as f:
-            for v in moi_data:
-                f.write(f"{v['id']},{v['x1']},{v['y1']},{v['x2']},{v['y2']}\n")
-        moi_vectors_path = str(moi_txt)
+    raw_video_url = ""
 
-    raw_video_url = f"/media/{run_id}/uploads/{Path(video_path).name}"
+    if use_demo_files:
+        demo = _demo_paths(root_dir)
+        required = ["video", "weights", "movement"]
+        if mode == "manual":
+            required += ["roi", "moi"]
+        missing = [name for name in required if not demo[name].exists()]
+        if missing:
+            missing_text = ", ".join(f"{name}={demo[name]}" for name in missing)
+            raise FileNotFoundError(f"Thiếu file demo mặc định: {missing_text}")
+
+        video_path = str(demo["video"])
+        weights_path = str(demo["weights"])
+        movement_path = str(demo["movement"])
+        if mode == "manual":
+            roi_file = str(demo["roi"])
+            moi_vectors_path = str(demo["moi"])
+            try:
+                moi_count_hint = sum(1 for ln in open(moi_vectors_path, encoding="utf-8") if ln.strip())
+            except Exception:
+                pass
+        video_name = f"demo:{demo['video'].name}"
+    else:
+        video_path = _save_upload(
+            data["video_upload"],
+            upload_dir / f"video_{Path(data['video_upload'].name).name}",
+        )
+        weights_path = _save_upload(
+            data["weights_upload"],
+            upload_dir / f"weights_{Path(data['weights_upload'].name).name}",
+        )
+        if data.get("movement_upload"):
+            movement_path = _save_upload(
+                data["movement_upload"],
+                upload_dir / f"movement_{Path(data['movement_upload'].name).name}",
+            )
+
+        if data.get("roi_upload"):
+            roi_file = _save_upload(
+                data["roi_upload"],
+                upload_dir / f"roi_{Path(data['roi_upload'].name).name}",
+            )
+        elif (data.get("roi_json") or "").strip():
+            # ROI drawn interactively on the canvas
+            roi_points = json.loads(data["roi_json"])
+            roi_txt = upload_dir / "roi_drawn.txt"
+            with open(roi_txt, "w", encoding="utf-8") as f:
+                for p in roi_points:
+                    f.write(f"{int(p[0])},{int(p[1])}\n")
+            roi_file = str(roi_txt)
+
+        if data.get("moi_upload"):
+            moi_vectors_path = _save_upload(
+                data["moi_upload"],
+                upload_dir / f"moi_{Path(data['moi_upload'].name).name}",
+            )
+            try:
+                moi_count_hint = sum(1 for ln in open(moi_vectors_path, encoding="utf-8") if ln.strip())
+            except Exception:
+                pass
+        elif (data.get("moi_json") or "").strip():
+            # MOI drawn interactively on the canvas
+            moi_data = json.loads(data["moi_json"])
+            moi_count_hint = len(moi_data)
+            moi_txt = upload_dir / "moi_drawn.txt"
+            with open(moi_txt, "w", encoding="utf-8") as f:
+                for v in moi_data:
+                    f.write(f"{v['id']},{v['x1']},{v['y1']},{v['x2']},{v['y2']}\n")
+            moi_vectors_path = str(moi_txt)
+
+        raw_video_url = f"/media/{run_id}/uploads/{Path(video_path).name}"
+        video_name = Path(data["video_upload"].name).name
 
     # Persist run metadata for history page (survives server restarts)
     run_meta = {
         "run_id": run_id,
         "mode": mode,
         "timestamp": datetime.now().isoformat(),
-        "video_name": Path(data["video_upload"].name).name,
+        "video_name": video_name,
         "run_mode": "Quick preview" if data.get("quick_preview") else "Full run",
+        "use_demo_files": use_demo_files,
+        "class_conf": data.get("class_conf", ""),
     }
     with open(out_dir / "run_meta.json", "w", encoding="utf-8") as _mf:
         json.dump(run_meta, _mf, ensure_ascii=False)
@@ -779,5 +864,3 @@ def history_index(request):
                 "status": status,
             })
     return render(request, "counter/history.html", {"runs": runs, "page_mode": "history"})
-
-

@@ -321,6 +321,25 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--video-clip-id", type=int, default=1, help="video_clip_id written to CSV.")
     parser.add_argument("--imgsz", type=int, default=1280, help="YOLO inference image size.")
     parser.add_argument("--conf", type=float, default=0.25, help="YOLO confidence threshold.")
+    parser.add_argument(
+        "--class-conf",
+        default="",
+        help="Optional per-class confidence overrides, e.g. car=0.25,truck=0.45.",
+    )
+    parser.add_argument(
+        "--min-count-history",
+        type=int,
+        default=5,
+        help="Minimum number of trajectory points before a track can be counted.",
+    )
+    parser.add_argument(
+        "--min-count-displacement",
+        type=float,
+        default=30.0,
+        help="Minimum 10%%-90%% trajectory displacement in pixels before counting.",
+    )
+    parser.add_argument("--moi-angle-weight", type=float, default=300.0, help="Angle weight for vector-based MOI assignment.")
+    parser.add_argument("--moi-distance-weight", type=float, default=0.35, help="Endpoint-distance weight for vector-based MOI assignment.")
     parser.add_argument("--frame-stride", type=int, default=1, help="Process every N-th frame for faster runtime.")
     parser.add_argument("--max-frames", type=int, default=0, help="Stop after this many frames (0 means full video).")
     parser.add_argument("--show", action="store_true", help="Show visualized video while processing.")
@@ -446,7 +465,30 @@ def class_to_aicity_id(name: str) -> Optional[int]:
     return None
 
 
-def movement_id_from_vectors(track: Track, vectors: Dict[int, Tuple[Point, Point]]) -> int:
+def parse_class_conf(spec: str) -> Dict[int, float]:
+    overrides: Dict[int, float] = {}
+    if not spec:
+        return overrides
+    for item in spec.split(","):
+        item = item.strip()
+        if not item:
+            continue
+        if "=" not in item:
+            raise ValueError(f"Invalid --class-conf item: {item!r}")
+        key, value = [part.strip() for part in item.split("=", 1)]
+        cls_id = class_to_aicity_id(key)
+        if cls_id is None:
+            raise ValueError(f"Unsupported class in --class-conf: {key!r}")
+        overrides[cls_id] = float(value)
+    return overrides
+
+
+def movement_id_from_vectors(
+    track: Track,
+    vectors: Dict[int, Tuple[Point, Point]],
+    angle_weight: float = 300.0,
+    distance_weight: float = 0.35,
+) -> int:
     start = track.history[max(0, int(0.1 * len(track.history)) - 1)]
     end = track.history[min(len(track.history) - 1, int(0.9 * len(track.history)))]
     tv = np.array([end[0] - start[0], end[1] - start[1]], dtype=np.float32)
@@ -461,7 +503,7 @@ def movement_id_from_vectors(track: Track, vectors: Dict[int, Tuple[Point, Point
         cos = max(-1.0, min(1.0, cos))
         angle = math.acos(cos)
         dist = float(math.hypot(start[0] - s[0], start[1] - s[1]) + math.hypot(end[0] - e[0], end[1] - e[1]))
-        score = angle * 100.0 + dist
+        score = angle * angle_weight + dist * distance_weight
         if score < best_score:
             best_score = score
             best_mid = mid
@@ -478,9 +520,17 @@ def movement_id_fallback(track: Track, movement_count: int) -> int:
     return max(1, min(movement_count, mapped))
 
 
-def collect_detections(model: YOLO, frame: np.ndarray, conf_thres: float, imgsz: int, eroi_polygon: np.ndarray) -> List[Detection]:
+def collect_detections(
+    model: YOLO,
+    frame: np.ndarray,
+    conf_thres: float,
+    imgsz: int,
+    eroi_polygon: np.ndarray,
+    class_conf: Optional[Dict[int, float]] = None,
+) -> List[Detection]:
     result = model.predict(frame, conf=conf_thres, imgsz=imgsz, verbose=False)[0]
     detections: List[Detection] = []
+    class_conf = class_conf or {}
     names = result.names
     if result.boxes is None:
         return detections
@@ -493,6 +543,8 @@ def collect_detections(model: YOLO, frame: np.ndarray, conf_thres: float, imgsz:
         name = names[int(cls_idx)]
         aicity_cls = class_to_aicity_id(name)
         if aicity_cls is None:
+            continue
+        if float(conf) < class_conf.get(aicity_cls, conf_thres):
             continue
 
         x1, y1, x2, y2 = map(float, box.tolist())
@@ -621,6 +673,16 @@ def draw_frame(
     return vis
 
 
+def track_displacement(track: Track) -> float:
+    if len(track.history) < 2:
+        return 0.0
+    i0 = max(0, int(0.10 * len(track.history)))
+    i1 = min(len(track.history) - 1, int(0.90 * len(track.history)))
+    start = track.history[i0]
+    end = track.history[i1]
+    return float(math.hypot(end[0] - start[0], end[1] - start[1]))
+
+
 def count_track(
     tr: Track,
     frame_idx: int,
@@ -629,10 +691,22 @@ def count_track(
     rows: List[Tuple[int, int, int, int]],
     count_stats: Dict[Tuple[int, int], int],
     video_clip_id: int,
+    min_count_history: int,
+    min_count_displacement: float,
+    moi_angle_weight: float,
+    moi_distance_weight: float,
 ) -> None:
     if tr.counted or tr.is_illegal or tr.hits < 3 or not tr.ever_inside_roi:
         return
-    movement_id = movement_id_from_vectors(tr, moi_vectors) if moi_vectors else movement_id_fallback(tr, movement_count)
+    if len(tr.history) < min_count_history:
+        return
+    if track_displacement(tr) < min_count_displacement:
+        return
+    movement_id = (
+        movement_id_from_vectors(tr, moi_vectors, moi_angle_weight, moi_distance_weight)
+        if moi_vectors
+        else movement_id_fallback(tr, movement_count)
+    )
     rows.append((video_clip_id, frame_idx, movement_id, tr.cls_id))
     count_stats[(movement_id, tr.cls_id)] = count_stats.get((movement_id, tr.cls_id), 0) + 1
     tr.counted = True
@@ -651,6 +725,7 @@ def main() -> None:
     iroi_polygon = load_polygon(args.iroi_file) if args.iroi_file else None
     moi_vectors = load_moi_vectors(args.moi_vectors)
     movement_count = infer_movement_count(args.movement_description)
+    class_conf = parse_class_conf(args.class_conf)
 
     model = YOLO(args.weights)
     tracker = MultiStepTracker()
@@ -718,7 +793,7 @@ def main() -> None:
             frame_idx += 1
             continue
 
-        detections = collect_detections(model, frame, args.conf, args.imgsz, eroi_polygon)
+        detections = collect_detections(model, frame, args.conf, args.imgsz, eroi_polygon, class_conf)
         tracks = tracker.update(detections, frame_idx)
 
         for tr in tracks.values():
@@ -737,6 +812,10 @@ def main() -> None:
                     rows,
                     count_stats,
                     args.video_clip_id,
+                    args.min_count_history,
+                    args.min_count_displacement,
+                    args.moi_angle_weight,
+                    args.moi_distance_weight,
                 )
 
         # If a tracklet disappears after being inside ROI, estimate it as exited.
@@ -754,6 +833,10 @@ def main() -> None:
                 rows,
                 count_stats,
                 args.video_clip_id,
+                args.min_count_history,
+                args.min_count_displacement,
+                args.moi_angle_weight,
+                args.moi_distance_weight,
             )
 
         if args.show or writer is not None:
@@ -804,6 +887,10 @@ def main() -> None:
             rows,
             count_stats,
             args.video_clip_id,
+            args.min_count_history,
+            args.min_count_displacement,
+            args.moi_angle_weight,
+            args.moi_distance_weight,
         )
 
     rows.sort(key=lambda x: (x[1], x[2], x[3]))

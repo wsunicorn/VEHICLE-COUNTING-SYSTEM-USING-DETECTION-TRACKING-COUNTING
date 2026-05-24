@@ -176,138 +176,6 @@
     .mode-card--auto .mode-card-link { color: var(--brand); border-color: var(--brand); }
     .mode-card--auto .mode-card-link:hover { background: rgba(14,107,168,0.08); }
 
-    /* Architecture section */
-    .arch-section { margin-top: 0; }
-
-    .arch-section-title {
-      font-size: 1.4rem;
-      font-weight: 800;
-      margin: 0 0 6px;
-    }
-
-    .arch-section-sub {
-      color: var(--muted);
-      font-size: 14px;
-      margin: 0 0 24px;
-    }
-
-    .arch-panels {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 22px;
-    }
-
-    @media (max-width: 700px) {
-      .arch-panels { grid-template-columns: 1fr; }
-    }
-
-    .arch-panel {
-      border-radius: var(--radius-sm);
-      border: 1.5px dashed var(--line);
-      overflow: hidden;
-      background: rgba(0,0,0,0.02);
-      transition: border-color var(--transition);
-    }
-
-    [data-theme="dark"] .arch-panel { background: rgba(255,255,255,0.02); }
-
-    .arch-panel:hover { border-color: var(--muted); }
-
-    .arch-panel-label {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      padding: 10px 14px;
-      font-size: 12.5px;
-      font-weight: 700;
-      color: var(--muted);
-      border-bottom: 1px solid var(--line);
-      letter-spacing: 0.04em;
-      text-transform: uppercase;
-    }
-
-    .arch-panel-label--manual { color: #009aa0; }
-    .arch-panel-label--auto   { color: var(--brand); }
-    [data-theme="dark"] .arch-panel-label--manual { color: #00d5d8; }
-
-    .arch-img-slot {
-      width: 100%;
-      min-height: 220px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      flex-direction: column;
-      gap: 10px;
-      padding: 24px;
-      color: var(--muted);
-      font-size: 13px;
-      text-align: center;
-    }
-
-    .arch-img-slot img {
-      max-width: 100%;
-      height: auto;
-      border-radius: 6px;
-      display: block;
-    }
-
-    .arch-placeholder {
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      gap: 10px;
-    }
-
-    .arch-placeholder-icon {
-      width: 56px;
-      height: 56px;
-      border-radius: 14px;
-      background: var(--line);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      color: var(--muted);
-    }
-
-    .arch-placeholder p {
-      margin: 0;
-      font-size: 13px;
-      color: var(--muted);
-    }
-
-    .arch-placeholder small {
-      display: block;
-      font-size: 11.5px;
-      color: var(--muted);
-      opacity: 0.7;
-      margin-top: 2px;
-    }
-
-    /* Tech stack chips */
-    .tech-grid {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 10px;
-    }
-
-    .tech-chip {
-      display: inline-flex;
-      align-items: center;
-      gap: 7px;
-      padding: 7px 14px;
-      border-radius: 999px;
-      font-size: 13px;
-      font-weight: 600;
-      background: rgba(14,107,168,0.07);
-      color: var(--brand);
-      border: 1px solid rgba(14,107,168,0.18);
-    }
-
-    [data-theme="dark"] .tech-chip {
-      background: rgba(61,169,224,0.10);
-      border-color: rgba(61,169,224,0.22);
-    }
-
     /* Stats row */
     .stats-row {
       display: grid;
@@ -344,43 +212,6 @@
       letter-spacing: 0.04em;
     }
 
-    /* Pipeline flow */
-    .pipeline-flow {
-      display: flex;
-      align-items: center;
-      flex-wrap: wrap;
-      gap: 0;
-      margin-top: 4px;
-    }
-
-    .pipeline-step {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      padding: 8px 14px;
-      border-radius: var(--radius-sm);
-      background: var(--card);
-      border: 1px solid var(--line);
-      font-size: 13px;
-      font-weight: 600;
-      color: var(--ink-2);
-      white-space: nowrap;
-    }
-
-    .pipeline-step svg { color: var(--brand); }
-
-    .pipeline-arrow {
-      padding: 0 6px;
-      color: var(--muted);
-      font-size: 18px;
-      flex-shrink: 0;
-    }
-
-    @media (max-width: 600px) {
-      .pipeline-flow { flex-direction: column; align-items: flex-start; }
-      .pipeline-arrow { transform: rotate(90deg); }
-    }
-
     .section-label {
       font-size: 11.5px;
       font-weight: 700;
@@ -392,9 +223,6 @@
   </style>
 </head>
 <body>
-  <div class="bg-shape bg-shape-1" aria-hidden="true"></div>
-  <div class="bg-shape bg-shape-2" aria-hidden="true"></div>
-
   <!-- ── Topbar ── -->
   <header class="topbar">
     <div class="topbar-inner">
@@ -439,12 +267,10 @@
           <span class="dot-live" aria-hidden="true"></span>
           Intelligent Traffic Analysis System
         </p>
-        <h1>DTC <span class="gradient-text">Vehicle Counting</span><br>Dashboard</h1>
+        <h1>DTC <span class="gradient-text">Vehicle Counting</span></h1>
         <p class="hero-subtitle">
-          Hệ thống đếm và phân loại phương tiện thời gian thực sử dụng
-          <strong>YOLO</strong>, <strong>Bộ lọc Kalman</strong>, <strong>Hungarian Algorithm</strong>
-          và vùng quan sát thông minh <strong>ROI/MOI</strong>.
-          Hai chế độ vận hành: thủ công với dữ liệu có sẵn, hoặc hoàn toàn tự động bằng SAM.
+          Demo đếm phương tiện bằng YOLO, tracker và ROI/MOI. Có thể chạy ngay bằng bộ
+          <strong>cam_5</strong> có sẵn hoặc upload dữ liệu riêng.
         </p>
         <div class="landing-cta-row">
           <a href="{% url 'manual' %}" class="cta-btn cta-btn--primary">
@@ -481,8 +307,8 @@
       <!-- ── Mode Cards ── -->
       <section class="card">
         <div class="section-head">
-          <h2>Hai Chế Độ Vận Hành</h2>
-          <p>Chọn chế độ phù hợp với dữ liệu và yêu cầu của bạn.</p>
+          <h2>Chọn chế độ demo</h2>
+          <p>Chế độ thủ công dùng ROI/MOI chuẩn để demo ổn định nhất; chế độ tự động dùng Grounding-DINO/SAM để bootstrap ROI/MOI.</p>
         </div>
         <div class="mode-cards">
 
@@ -544,143 +370,6 @@
             </a>
           </div>
 
-        </div>
-      </section>
-
-      <!-- ── Architecture Diagrams ── -->
-      <section class="card arch-section">
-        <div class="section-head">
-          <h2>Kiến Trúc Hệ Thống</h2>
-          <p>Sơ đồ luồng xử lý của từng chế độ vận hành.</p>
-        </div>
-
-        <div class="arch-panels">
-
-          <!-- Manual architecture -->
-          <div class="arch-panel">
-            <div class="arch-panel-label arch-panel-label--manual">
-              <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 013 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
-              Chế Độ Thủ Công — Kiến Trúc
-            </div>
-            <div class="arch-img-slot" id="archManualSlot">
-              <!-- Replace this placeholder with your image:
-                   <img src="{% static 'counter/arch_manual.png' %}" alt="Kiến trúc chế độ thủ công" />
-              -->
-              <div class="arch-placeholder">
-                <div class="arch-placeholder-icon">
-                  <svg xmlns="http://www.w3.org/2000/svg" width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
-                </div>
-                <p><strong>Sơ đồ kiến trúc — Chế độ Thủ Công</strong></p>
-                <small>Đặt file ảnh tại <code>static/counter/arch_manual.png</code><br>rồi bỏ comment thẻ &lt;img&gt; bên trên.</small>
-              </div>
-            </div>
-          </div>
-
-          <!-- Auto SAM architecture -->
-          <div class="arch-panel">
-            <div class="arch-panel-label arch-panel-label--auto">
-              <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="3"/><path d="M19.07 4.93a10 10 0 010 14.14M4.93 4.93a10 10 0 000 14.14"/></svg>
-              Chế Độ Tự Động SAM — Kiến Trúc
-            </div>
-            <div class="arch-img-slot" id="archAutoSlot">
-              <!-- Replace this placeholder with your image:
-                   <img src="{% static 'counter/arch_auto.png' %}" alt="Kiến trúc chế độ SAM tự động" />
-              -->
-              <div class="arch-placeholder">
-                <div class="arch-placeholder-icon">
-                  <svg xmlns="http://www.w3.org/2000/svg" width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
-                </div>
-                <p><strong>Sơ đồ kiến trúc — Chế độ SAM Tự Động</strong></p>
-                <small>Đặt file ảnh tại <code>static/counter/arch_auto.png</code><br>rồi bỏ comment thẻ &lt;img&gt; bên trên.</small>
-              </div>
-            </div>
-          </div>
-
-        </div>
-
-        <!-- Pipeline text flows -->
-        <div style="margin-top: 28px; display: grid; grid-template-columns: 1fr 1fr; gap: 22px;">
-
-          <div>
-            <p class="section-label" style="color:#009aa0;">Pipeline — Thủ Công</p>
-            <div class="pipeline-flow">
-              <div class="pipeline-step">
-                <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="2" y="7" width="20" height="15" rx="2"/><polyline points="17 2 12 7 7 2"/></svg>
-                Video
-              </div>
-              <span class="pipeline-arrow">→</span>
-              <div class="pipeline-step">
-                <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polygon points="12 2 22 8.5 22 15.5 12 22 2 15.5 2 8.5 12 2"/></svg>
-                ROI / MOI
-              </div>
-              <span class="pipeline-arrow">→</span>
-              <div class="pipeline-step">
-                <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-                YOLO
-              </div>
-              <span class="pipeline-arrow">→</span>
-              <div class="pipeline-step">
-                <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
-                Kalman
-              </div>
-              <span class="pipeline-arrow">→</span>
-              <div class="pipeline-step">
-                <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
-                CSV
-              </div>
-            </div>
-          </div>
-
-          <div>
-            <p class="section-label" style="color:var(--brand);">Pipeline — SAM Tự Động</p>
-            <div class="pipeline-flow">
-              <div class="pipeline-step">
-                <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="2" y="7" width="20" height="15" rx="2"/><polyline points="17 2 12 7 7 2"/></svg>
-                Video
-              </div>
-              <span class="pipeline-arrow">→</span>
-              <div class="pipeline-step">
-                <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="3"/><path d="M19.07 4.93a10 10 0 010 14.14M4.93 4.93a10 10 0 000 14.14"/></svg>
-                DINO+SAM
-              </div>
-              <span class="pipeline-arrow">→</span>
-              <div class="pipeline-step">
-                <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polygon points="12 2 22 8.5 22 15.5 12 22 2 15.5 2 8.5 12 2"/></svg>
-                ROI+MOI
-              </div>
-              <span class="pipeline-arrow">→</span>
-              <div class="pipeline-step">
-                <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-                YOLO
-              </div>
-              <span class="pipeline-arrow">→</span>
-              <div class="pipeline-step">
-                <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
-                CSV
-              </div>
-            </div>
-          </div>
-
-        </div>
-      </section>
-
-      <!-- ── Tech stack ── -->
-      <section class="card">
-        <div class="section-head">
-          <h2>Công Nghệ Sử Dụng</h2>
-          <p>Các thư viện và mô hình AI cốt lõi của hệ thống.</p>
-        </div>
-        <div class="tech-grid">
-          <span class="tech-chip"><svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="11" cy="11" r="8"/></svg> YOLOv8/v9/v10/v11</span>
-          <span class="tech-chip"><svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg> Kalman Filter</span>
-          <span class="tech-chip"><svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="16" y1="16" x2="12" y2="12"/><line x1="8" y1="8" x2="12" y2="12"/></svg> Hungarian Algorithm</span>
-          <span class="tech-chip"><svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="3"/><path d="M19.07 4.93a10 10 0 010 14.14"/></svg> Segment Anything (SAM)</span>
-          <span class="tech-chip"><svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg> Grounding-DINO</span>
-          <span class="tech-chip"><svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"/></svg> OpenCV</span>
-          <span class="tech-chip"><svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="4 17 10 11 4 5"/><line x1="12" y1="19" x2="20" y2="19"/></svg> Python / Django</span>
-          <span class="tech-chip"><svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/></svg> CSV Output (AIC21 format)</span>
-          <span class="tech-chip"><svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2"/></svg> H.264 Video Output</span>
-          <span class="tech-chip"><svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="18" cy="15" r="3"/><circle cx="9" cy="7" r="4"/><path d="M10.67 12.5c-1.2.5-2.09 1.5-2.42 2.73"/><path d="M14.11 12.16A5 5 0 0 1 21 17"/></svg> K-Means MOI clustering</span>
         </div>
       </section>
 

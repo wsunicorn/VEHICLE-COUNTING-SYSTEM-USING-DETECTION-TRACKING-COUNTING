@@ -46,6 +46,15 @@ Các công nghệ chính:
 | Evaluation | nwRMSE, S1 Effectiveness, MAE, Count Accuracy | Đánh giá kết quả |
 | Web Demo | Django | Giao diện demo và chạy pipeline |
 
+Hiểu nhanh các thuật ngữ trong pipeline:
+
+- **Detection** là bước tìm xe trong từng frame. Output là `bounding box + class + confidence`.
+- **Tracking** là bước nối các detection qua nhiều frame để biết đâu là cùng một xe.
+- **Counting** là bước quyết định track nào được ghi nhận, ghi nhận tại frame nào và thuộc hướng nào.
+- **ROI** trả lời câu hỏi "đếm ở vùng nào?".
+- **MOI** trả lời câu hỏi "xe đi theo hướng nào?".
+- **Metric** là công thức đánh giá kết quả, ví dụ đếm đúng tổng xe, đúng hướng, đúng loại xe và đúng theo thời gian.
+
 ---
 
 ## 2. What - Hệ Thống Này Là Gì?
@@ -72,6 +81,15 @@ video_clip_id,frame_id,movement_id,vehicle_class_id
 - `movement_id = 3`: xe đi theo hướng số 3.
 - `vehicle_class_id = 1`: xe hơi. Trong project: `1 = car`, `2 = truck`.
 
+Các trường này cần được hiểu như sau:
+
+| Trường | Định nghĩa | Vì sao quan trọng? |
+|---|---|---|
+| `video_clip_id` | ID của video/camera đang xử lý | Giúp gộp hoặc tách kết quả theo từng camera |
+| `frame_id` | thứ tự frame tại thời điểm xe được đếm | Dùng để đánh giá sai số theo thời gian |
+| `movement_id` | ID hướng di chuyển | Cho biết xe đi thẳng, rẽ trái, rẽ phải hoặc một luồng cụ thể |
+| `vehicle_class_id` | ID loại phương tiện | Cho phép đếm riêng car/truck |
+
 Điểm quan trọng: hệ thống không chỉ đếm tổng số xe, mà đếm theo **loại xe** và **hướng di chuyển**. Đây là yêu cầu quan trọng trong bài toán traffic flow analysis và AI City Challenge Track 1.
 
 ---
@@ -80,11 +98,15 @@ video_clip_id,frame_id,movement_id,vehicle_class_id
 
 Nếu chỉ dùng object detection, ta chỉ biết trong từng frame có bao nhiêu xe. Nhưng một xe xuất hiện trong nhiều frame, nên nếu cộng detection theo frame thì sẽ đếm trùng rất nhiều lần.
 
+**Object detection** là bài toán tìm vị trí và lớp đối tượng trong một ảnh. Với project này, detector trả lời câu hỏi: "frame hiện tại có xe hơi hoặc xe tải nào không, và chúng nằm ở đâu?". Detector không có trí nhớ theo thời gian, nên nó không biết xe ở frame 100 có phải cùng xe ở frame 101 hay không.
+
 Vì vậy cần thêm tracking:
 
 ```text
 Detection từng frame -> Tracklet của từng xe -> Đếm mỗi xe một lần
 ```
+
+**Tracklet** là chuỗi vị trí của cùng một xe qua nhiều frame. Nếu tracklet ổn định, hệ thống có thể đếm một xe đúng một lần thay vì đếm lại ở mỗi frame.
 
 Tuy nhiên tracking vẫn chưa đủ. Ta còn cần biết xe đi theo hướng nào trong giao lộ. Vì vậy cần:
 
@@ -164,12 +186,28 @@ dtc_counting/data/AIC21_Track1_Vehicle_Counting/
 
 Các video lớn, output, media web demo và model nặng được ignore để repo không vượt giới hạn GitHub.
 
+Trong project có hai nhóm dữ liệu khác nhau:
+
+| Nhóm dữ liệu | Dùng để làm gì? | Ví dụ |
+|---|---|---|
+| Dữ liệu train detector | Dạy YOLO nhận ra `car` và `truck` | frame ảnh đã gán bounding box |
+| Dữ liệu đánh giá counting | Kiểm tra pipeline đếm xe theo hướng | video, ROI, MOI, ground truth CSV |
+
+Điểm cần nhớ: YOLO học từ ảnh đã gán nhãn, còn kết quả cuối của hệ thống được đánh giá trên video counting. Detector tốt là điều kiện cần, nhưng tracking và ROI/MOI mới quyết định xe có được đếm đúng hướng hay không.
+
 ### 5.2 Dữ liệu train YOLO
 
 Để train detector, nhóm cần tạo dataset có nhãn bounding box cho các lớp:
 
 - `car`
 - `truck`
+
+Các khái niệm ở bước này:
+
+- **Frame** là một ảnh đơn trong video. Video thực chất là chuỗi nhiều frame liên tiếp.
+- **Annotation** là nhãn do người gán cho ảnh.
+- **Bounding box** là hình chữ nhật bao quanh xe, thường được lưu bằng tọa độ tâm, chiều rộng và chiều cao.
+- **Class label** là nhãn loại xe, trong project là `car` hoặc `truck`.
 
 Quy trình xử lý dữ liệu:
 
@@ -216,6 +254,8 @@ ffmpeg -i input_video.mp4 -vf "select=not(mod(n\,5))" -vsync vfr frames/frame_%0
 
 Roboflow được dùng để quản lý ảnh, gán nhãn và export dataset YOLO.
 
+Nói đơn giản, Roboflow là công cụ giúp biến frame thô thành dataset có cấu trúc. Người dùng upload ảnh, vẽ box quanh xe, gắn nhãn class, kiểm tra lại nhãn và export sang định dạng mà YOLO có thể train.
+
 Quy trình gán nhãn:
 
 1. Tạo project detection trên Roboflow.
@@ -237,6 +277,15 @@ Quy tắc gán nhãn nên dùng:
 | Car/truck khó phân biệt | Review lại bằng nhiều người |
 
 Lưu ý quan trọng: YOLO học từ nhãn detector, còn ROI/MOI xử lý ở bước counting. Vì vậy khi train detector, ta tập trung vào việc nhận diện xe chính xác; khi đếm, ta mới dùng ROI/MOI để quyết định xe nào được ghi nhận.
+
+Một số lỗi gán nhãn ảnh hưởng trực tiếp đến hệ thống:
+
+| Lỗi nhãn | Hậu quả khi chạy pipeline |
+|---|---|
+| Thiếu box xe | YOLO dễ bỏ sót xe, làm đếm thiếu |
+| Box lệch quá nhiều | Tracker nhận vị trí sai, dễ mất track |
+| Sai class car/truck | CSV output sai `vehicle_class_id` |
+| Nhãn không nhất quán | Model học không ổn định giữa các cảnh |
 
 ### 5.5 Format YOLO sau khi export
 
@@ -277,11 +326,21 @@ Trong Roboflow/YOLO:
 
 Trong code, hàm `class_to_aicity_id()` chuyển nhãn YOLO sang ID output của AI City.
 
+Các file sau khi export thường được chia thành `train` và `val`:
+
+- **Train set** dùng để cập nhật trọng số model.
+- **Validation set** dùng để kiểm tra model trong lúc train.
+- **Test set**, nếu có, chỉ nên dùng để đánh giá cuối.
+
+Nếu train và validation quá giống nhau, kết quả có thể nhìn tốt nhưng model không tổng quát sang camera khác. Đây gọi là **overfitting**: model nhớ dữ liệu cũ nhiều hơn là học đặc trưng thật của xe.
+
 ---
 
 ## 6. Huấn Luyện YOLO Detector
 
 ### 6.1 Vì sao dùng YOLO?
+
+**YOLO** là họ mô hình object detection một giai đoạn. "Một giai đoạn" nghĩa là model nhìn ảnh một lần và dự đoán trực tiếp các bounding box, class và confidence. Điều này khác với các hướng hai giai đoạn, nơi model phải đề xuất vùng trước rồi mới phân loại.
 
 YOLO phù hợp với bài toán này vì:
 
@@ -290,6 +349,8 @@ YOLO phù hợp với bài toán này vì:
 - có API Ultralytics thuận tiện,
 - đủ tốt cho bài toán car/truck trong video giao thông,
 - dễ tích hợp vào pipeline Python/OpenCV.
+
+Trong hệ thống này, YOLO không đếm xe trực tiếp. YOLO chỉ tạo danh sách detection cho từng frame; các bước tracking, ROI/MOI và counting mới biến detection đó thành kết quả đếm.
 
 ### 6.2 Transfer learning
 
@@ -304,6 +365,8 @@ Fine-tune trên frame giao thông đã gán nhãn
         v
 best.pt / best2.pt
 ```
+
+**Transfer learning** giúp tiết kiệm dữ liệu và thời gian train. Model pretrained đã biết các đặc trưng thị giác cơ bản như cạnh, bánh xe, thân xe, hình khối; fine-tune chỉ điều chỉnh model cho camera giao thông và hai class của project.
 
 ### 6.3 Lệnh train tham khảo
 
@@ -321,6 +384,17 @@ yolo train \
   name=vehicle_counter
 ```
 
+Ý nghĩa các tham số train thường gặp:
+
+| Tham số | Ý nghĩa |
+|---|---|
+| `model` | checkpoint YOLO ban đầu, ví dụ `yolov8m.pt` |
+| `data` | file `data.yaml` mô tả train/val path và class |
+| `epochs` | số vòng model học qua dataset |
+| `imgsz` | kích thước ảnh đưa vào model |
+| `batch` | số ảnh xử lý trong một bước cập nhật |
+| `device` | CPU/GPU dùng để train |
+
 Nếu máy yếu hơn:
 
 ```bash
@@ -328,6 +402,8 @@ yolo train model=yolov8n.pt data=data.yaml epochs=80 imgsz=960 batch=8
 ```
 
 ### 6.4 Augmentation
+
+**Augmentation** là tạo biến thể ảnh trong lúc train để model gặp nhiều tình huống hơn. Mục tiêu là làm detector không quá phụ thuộc vào đúng một camera, một ánh sáng hoặc một background.
 
 Các augmentation hữu ích:
 
@@ -342,6 +418,8 @@ Không nên dùng rotation quá mạnh vì camera giao thông thường cố đ�
 
 ### 6.5 Metric khi train detector
 
+Các metric ở mục này đánh giá riêng detector, chưa phải đánh giá toàn bộ hệ thống counting.
+
 Các metric detector:
 
 | Metric | Công thức/ý nghĩa |
@@ -351,6 +429,14 @@ Các metric detector:
 | F1 | `2PR / (P + R)` |
 | mAP@0.5 | AP trung bình tại IoU threshold 0.5 |
 | mAP@0.5:0.95 | AP trung bình qua nhiều threshold IoU |
+
+Trong đó:
+
+- **TP** là detection đúng xe.
+- **FP** là model báo có xe nhưng thực tế không có.
+- **FN** là xe thật nhưng model bỏ sót.
+- **IoU** là độ chồng lắp giữa box dự đoán và box ground truth.
+- **mAP** là metric tổng hợp độ chính xác detection trên nhiều ngưỡng.
 
 Detector tốt chưa đảm bảo counter tốt. Một detector có mAP cao nhưng tracking/MOI sai thì kết quả đếm vẫn sai. Vì vậy project đánh giá cả pipeline bằng counting metrics.
 
@@ -384,11 +470,24 @@ Hàm quan trọng:
 collect_detections()
 ```
 
+**Detection** trong pipeline là bước đọc một frame và trả về các xe được phát hiện. Mỗi detection gồm:
+
+- bounding box: vị trí xe,
+- class: `car` hoặc `truck`,
+- confidence: độ tin cậy của model.
+
 YOLO nhận frame `I_t` và trả về:
 
 ```text
 d_i = (x1, y1, x2, y2, class, confidence)
 ```
+
+Trong đó:
+
+- `(x1, y1)` là góc trên trái của bbox.
+- `(x2, y2)` là góc dưới phải của bbox.
+- `class` là nhãn xe.
+- `confidence` càng cao thì model càng tin detection đó là thật.
 
 Sau đó hệ thống:
 
@@ -405,6 +504,16 @@ Ngưỡng thường dùng:
 --class-conf car=0.25,truck=0.75
 ```
 
+Vì truck dễ bị nhầm với các xe lớn hoặc vùng ảnh nhiễu, project thường đặt ngưỡng confidence cho truck cao hơn car.
+
+YOLO/Ultralytics cũng thường xử lý sẵn các bước nền như:
+
+- **letterbox resize**: resize ảnh nhưng giữ tỉ lệ, thêm padding nếu cần để tránh làm méo xe,
+- **NMS**: loại bỏ nhiều box trùng nhau trên cùng một xe,
+- decode output tensor thành bbox/class/confidence dễ dùng.
+
+OpenCV hỗ trợ phần còn lại: đọc frame từ video, vẽ bbox, crop vùng xe và ghi video overlay.
+
 ---
 
 ## 8. Module Tracking
@@ -414,6 +523,14 @@ Tracker nằm trong class:
 ```text
 MultiStepTracker
 ```
+
+**Multi-object tracking** là bài toán theo dõi nhiều đối tượng cùng lúc trong video. Input của tracker là các detection ở từng frame; output là các `track_id` ổn định cho từng xe.
+
+Nếu tracking tốt, cùng một xe sẽ giữ cùng ID từ lúc xuất hiện đến lúc rời khỏi vùng quan sát. Nếu tracking kém, hệ thống có thể gặp:
+
+- **ID switch**: cùng một xe bị đổi ID giữa chừng,
+- **fragmentation**: một xe bị tách thành nhiều track ngắn,
+- **merge**: hai xe gần nhau bị nhập nhầm thành một track.
 
 ### 8.1 Trạng thái Kalman 8 chiều
 
@@ -429,6 +546,8 @@ Trong đó:
 - `a`: aspect ratio, `a = width / height`.
 - `h`: chiều cao bbox.
 - `vcx, vcy, va, vh`: vận tốc tương ứng.
+
+**Kalman Filter** là bộ lọc dự đoán-cập nhật. Nó không chỉ lưu vị trí hiện tại mà còn ước lượng vận tốc và độ không chắc chắn. Nhờ vậy, nếu YOLO bỏ sót xe trong vài frame, tracker vẫn có thể dự đoán xe đang ở đâu.
 
 Prediction:
 
@@ -447,12 +566,36 @@ x_t = x'_t + K_t y_t
 P_t = (I - K_t H) P'_t
 ```
 
+Ý nghĩa các ký hiệu:
+
+| Ký hiệu | Cách hiểu |
+|---|---|
+| `x` | trạng thái track |
+| `P` | covariance, tức độ không chắc chắn của trạng thái |
+| `F` | ma trận chuyển trạng thái từ frame trước sang frame sau |
+| `Q` | process noise, độ nhiễu của mô hình chuyển động |
+| `z` | measurement, tức detection mới |
+| `H` | ma trận ánh xạ trạng thái sang không gian đo |
+| `R` | measurement noise, độ nhiễu của detection |
+| `K` | Kalman gain, quyết định tin dự đoán hay detection nhiều hơn |
+
 ### 8.2 Hungarian Matching
 
 Hungarian giải bài toán gán tối ưu:
 
 ```text
 min sum cost(track_i, detection_j)
+```
+
+Ở mỗi frame, có thể có nhiều track cũ và nhiều detection mới. Tracker cần quyết định detection nào thuộc track nào. Hungarian dùng **cost matrix** để tìm cách ghép có tổng chi phí nhỏ nhất.
+
+Ví dụ cost nhỏ nghĩa là khả năng cùng xe cao:
+
+```text
+              det1   det2   det3
+track1        0.1    0.9    0.7
+track2        0.8    0.2    0.6
+track3        0.9    0.4    0.1
 ```
 
 Project dùng ba tầng cost:
@@ -504,9 +647,26 @@ Sau mỗi frame:
 - Track unmatched -> tăng `missed`.
 - Track `missed > max_missed` -> xóa và xét đếm nếu đủ điều kiện.
 
+Nói theo luồng hệ thống:
+
+```text
+detection mới -> ghép với track cũ -> cập nhật track -> lưu lịch sử tâm xe -> khi track kết thúc thì xét đếm
+```
+
+Lịch sử tâm xe chính là trajectory, tức quỹ đạo dùng ở bước ROI/MOI và counting.
+
 ---
 
 ## 9. Module Counting: ROI/MOI Và Gán Hướng
+
+Đây là phần biến trajectory thành counting event. Detection trả lời "có xe ở đâu?", tracking trả lời "xe đó đi như thế nào?", còn counting trả lời "xe này có được ghi vào kết quả không, và ghi vào movement nào?".
+
+Các khái niệm hình học dùng trong mục này:
+
+- **Point** là một điểm ảnh `(x, y)`.
+- **Polygon** là đa giác gồm nhiều point.
+- **Trajectory** là chuỗi tâm xe qua thời gian.
+- **Displacement** là độ dời từ điểm đầu đến điểm cuối của trajectory.
 
 ### 9.1 Điều kiện để đếm một track
 
@@ -521,7 +681,18 @@ Track chỉ được đếm khi:
 
 Các điều kiện này giúp tránh đếm xe đứng yên, track quá ngắn hoặc detection nhiễu.
 
+**ROI - Region of Interest** là vùng cần quan sát. Trong project, ROI thường là một polygon vẽ quanh mặt đường/giao lộ cần đếm. Nếu tâm xe hoặc track chưa từng đi vào ROI, hệ thống không nên ghi event.
+
+Ngoài ROI chính, project còn có thể dùng:
+
+- **eROI - extended ROI**: vùng mở rộng để bắt xe sớm hơn, giảm mất track ở biên.
+- **iROI - illegal ROI**: vùng/đường đi không hợp lệ, giúp loại track đi sai vùng hoặc gây nhiễu.
+
+Một xe chỉ nên được đếm một lần, nên mỗi track có trạng thái đã đếm hay chưa. Đây là nguyên tắc **count once**.
+
 ### 9.2 Gán MOI bằng vector
+
+**MOI - Movement of Interest** là vector biểu diễn một hướng di chuyển hợp lệ trong camera. Nếu ROI là "đếm ở đâu", thì MOI là "đếm theo hướng nào".
 
 Với track có điểm đầu `S` và điểm cuối `E`:
 
@@ -562,6 +733,14 @@ distance_weight = 0.35
 
 MOI có score nhỏ nhất được chọn làm `movement_id`.
 
+Cách hiểu công thức:
+
+- phần `angle` ưu tiên MOI có hướng giống trajectory,
+- phần `dist` ưu tiên MOI có vị trí đầu/cuối gần trajectory,
+- `angle_weight` và `distance_weight` quyết định hướng hay vị trí quan trọng hơn.
+
+Nhờ vậy, nếu hai movement có hướng gần giống nhau nhưng nằm ở hai lane khác nhau, thành phần khoảng cách vẫn giúp phân biệt.
+
 ### 9.3 Nếu không có MOI
 
 Nếu không có file MOI, hệ thống fallback bằng góc quỹ đạo:
@@ -583,6 +762,10 @@ ROI/MOI có thể:
 - đọc từ file `.txt`,
 - khởi tạo tự động bằng SAM/Grounding-SAM.
 
+**Bootstrap** nghĩa là khởi tạo cấu hình ban đầu một cách tự động hoặc bán tự động. Trong project này, bootstrap không thay thế hoàn toàn cấu hình thủ công; nó giúp giảm công vẽ ROI/MOI và tạo baseline tự động để so sánh.
+
+**Segmentation** là bài toán phân đoạn ảnh theo vùng pixel. Khác với detection chỉ trả về bbox, segmentation trả về **mask**, tức vùng pixel thuộc đối tượng hoặc vùng quan tâm.
+
 ### 10.1 SAM Automatic
 
 Script:
@@ -600,6 +783,15 @@ Quy trình:
 5. Hợp mask thành ROI polygon.
 6. Suy MOI sơ bộ bằng PCA/KMeans.
 
+**SAM - Segment Anything Model** là model segmentation tổng quát. Ở chế độ automatic, SAM tự sinh nhiều mask trên ảnh mà không cần prompt. Ưu điểm là dễ chạy, nhưng nhược điểm là nó nhìn ảnh tĩnh nên có thể lấy nhầm cỏ, vỉa hè, toàn khung hình hoặc vùng không phải mặt đường.
+
+Vì vậy phần SAM Automatic của project có thêm các bước lọc mask:
+
+- lọc theo diện tích,
+- lọc theo vị trí,
+- lọc vùng nghi là vegetation/cỏ,
+- chuyển mask còn lại thành polygon ROI.
+
 ### 10.2 Grounding DINO + SAM
 
 Script:
@@ -616,6 +808,10 @@ road surface . traffic lane . intersection
 
 Grounding DINO tìm box liên quan đến prompt. SAM dùng box đó để phân đoạn ROI.
 
+**Grounding DINO** là model open-vocabulary detection: thay vì chỉ nhận một tập class cố định, nó có thể nhận prompt ngôn ngữ như `road surface` hoặc `traffic lane`. Output của Grounding DINO là box vùng ảnh có khả năng khớp prompt.
+
+**Prompt** là cụm từ hướng dẫn model tìm gì. Prompt càng sát cảnh giao thông thì khả năng tìm đúng mặt đường càng tốt. Sau khi có box từ Grounding DINO, SAM phân đoạn chi tiết vùng đó thành mask.
+
 ### 10.3 Quality gate
 
 Tự động bootstrap có thể sai. Vì vậy project dùng quality gate:
@@ -629,6 +825,8 @@ Tự động bootstrap có thể sai. Vì vậy project dùng quality gate:
 
 Nếu quality gate chưa đạt, hệ thống có thể dùng fallback.
 
+**Quality gate** là lớp kiểm tra chất lượng trước khi cho cấu hình tự động đi tiếp vào counting. Nó không làm SAM/Grounding DINO chính xác tuyệt đối, nhưng giúp tránh trường hợp một ROI sai rõ ràng lại được dùng để đánh giá định lượng.
+
 ### 10.4 Track-mined MOI fallback
 
 Script:
@@ -639,6 +837,8 @@ dtc_counting/build_moi_from_tracks.py
 
 Ý tưởng: nếu SAM tạo ROI được nhưng MOI quá ít, dùng chính quỹ đạo xe để suy MOI.
 
+**Fallback** là phương án dự phòng khi phương án chính chưa đủ tốt. Với B3/B4, SAM hoặc Grounding-SAM có thể tạo ROI nhưng không tạo đủ MOI. Khi đó, project chạy YOLO + tracker trên một đoạn video, lấy trajectory thật của xe rồi gom cụm để tạo MOI.
+
 Quy trình:
 
 1. Chạy YOLO + tracker trong một số frame.
@@ -647,6 +847,12 @@ Quy trình:
 4. Biến mỗi track thành vector hướng.
 5. Gom cụm vector bằng KMeans.
 6. Align ID về MOI chuẩn nếu có file reference.
+
+Trong đó:
+
+- **PCA** có thể dùng để tìm trục chính của vùng/mask hoặc cụm điểm.
+- **KMeans** gom các vector trajectory thành các nhóm hướng. Mỗi cụm có thể xem như một MOI ứng viên.
+- **Align ID** là bước sắp lại ID movement cho gần với MOI/reference, tránh cùng một hướng nhưng bị đặt ID khác.
 
 Nhờ vậy, B3/B4 có thể đưa vào bảng định lượng:
 
@@ -662,6 +868,8 @@ Script:
 ```text
 dtc_counting/run_full_comparison.py
 ```
+
+**Baseline** là cấu hình tham chiếu dùng để so sánh. Thay vì chỉ báo một kết quả cuối, project chạy nhiều cấu hình để biết phần nào đang đóng góp vào chất lượng hệ thống: ROI thủ công, MOI thủ công, MOI tự sinh, SAM Automatic hoặc Grounding DINO + SAM.
 
 | Baseline | Cấu hình | Câu hỏi cần trả lời |
 |---|---|---|
@@ -687,6 +895,14 @@ Script:
 dtc_counting/evaluate_counting.py
 ```
 
+Ở phần đánh giá có ba khái niệm cần phân biệt:
+
+- **Ground truth** là dữ liệu đúng dùng làm chuẩn so sánh.
+- **Prediction** là CSV do hệ thống tạo ra.
+- **Cumulative count** là số đếm tích lũy đến một segment/frame nhất định.
+
+Evaluator quy các file về cùng logic `video_id/frame_id/movement_id/vehicle_class_id`, rồi so sánh prediction với ground truth theo tổng xe, theo movement/class và theo thời gian.
+
 ### 12.1 Count Accuracy
 
 Đo sai lệch tổng số xe:
@@ -711,6 +927,8 @@ MAE thấp nghĩa là hệ thống phân bổ xe theo hướng và loại xe t�
 ### 12.3 Weighted cumulative nwRMSE
 
 Video được chia thành các segment thời gian. Ở mỗi segment, hệ thống so sánh count tích lũy.
+
+**RMSE** là căn trung bình bình phương sai số. **Weighted RMSE** thêm trọng số cho từng segment. **Normalized weighted RMSE** chuẩn hóa sai số theo số xe thật để các movement có lượng xe khác nhau vẫn so sánh hợp lý.
 
 ```text
 error_s = pred_cumulative_s - gt_cumulative_s
@@ -811,6 +1029,19 @@ Thư mục:
 dtc_counting/web_demo/
 ```
 
+**Django** là web framework Python. Trong project này, Django không làm thay thuật toán computer vision; nó là lớp giao diện để người dùng upload dữ liệu, chọn chế độ chạy, theo dõi log và xem output.
+
+Các khái niệm Django xuất hiện trong web demo:
+
+| Khái niệm | Cách hiểu trong project |
+|---|---|
+| Django project | phần cấu hình chung: settings, URL, media/static |
+| Django app | module chức năng `counter` xử lý demo đếm xe |
+| View | hàm nhận request, lưu file, gọi pipeline và trả response |
+| Form | định nghĩa input người dùng được phép gửi |
+| Template | HTML hiển thị giao diện |
+| Media folder | nơi lưu upload và output theo từng run |
+
 Chạy:
 
 ```powershell
@@ -862,6 +1093,8 @@ Có thể có:
 - `bootstrap_overlay.jpg`
 - `run_meta.json`
 
+Web demo chạy pipeline ở background vì counting/SAM có thể mất thời gian. Giao diện dùng cơ chế hỏi trạng thái định kỳ để cập nhật progress/log. Cách này giúp trang không bị đứng khi model đang xử lý video.
+
 ---
 
 ## 15. Cách Cài Đặt Và Chạy
@@ -873,6 +1106,18 @@ python -m venv .venv
 .venv\Scripts\activate
 python -m pip install ultralytics opencv-python numpy scipy django transformers torch torchvision
 ```
+
+Ý nghĩa các thư viện chính:
+
+| Thư viện | Vai trò trong project |
+|---|---|
+| `ultralytics` | load và chạy YOLO detector |
+| `opencv-python` | đọc/ghi video, xử lý frame, vẽ overlay |
+| `numpy` | tính toán vector, bbox, mask, ma trận |
+| `scipy` | hỗ trợ Hungarian matching qua `linear_sum_assignment` |
+| `torch`, `torchvision` | nền tảng deep learning cho YOLO/SAM/Grounding DINO |
+| `transformers` | hỗ trợ model Grounding DINO/processor liên quan |
+| `django` | chạy web demo |
 
 Nếu dùng GPU, cài PyTorch theo đúng bản CUDA từ trang PyTorch.
 
@@ -973,6 +1218,28 @@ File quan trọng:
 | `grounded_sam_bootstrap.py` | ROI bootstrap bằng Grounding DINO + SAM |
 | `sam_bootstrap.py` | Trajectory-guided SAM fallback |
 | `web_demo/counter/views.py` | Điều phối web demo và background run |
+
+Cách các script liên kết với nhau:
+
+```text
+run_dtc_counting.py
+  -> chạy pipeline chính: video -> YOLO -> tracker -> ROI/MOI -> CSV/overlay
+
+evaluate_counting.py
+  -> so sánh CSV prediction với ground truth và tính metric
+
+build_moi_from_tracks.py
+  -> dùng trajectory thật để tạo MOI khi thiếu MOI thủ công
+
+sam_auto_bootstrap.py / grounded_sam_bootstrap.py
+  -> tạo ROI/MOI tự động hoặc bán tự động
+
+run_full_comparison.py
+  -> gọi các script trên để chạy B1-B4 và gom bảng kết quả
+
+web_demo/counter/views.py
+  -> nhận input từ web rồi gọi pipeline ở background
+```
 
 ---
 

@@ -1,0 +1,251 @@
+{
+  "metadata": {
+    "gt_file": "counting_example_cam_5_1min.csv",
+    "pred_file": "b3_sam_auto.csv",
+    "gt_format": "local_csv",
+    "pred_format": "local_csv",
+    "total_frames": 600,
+    "frame_base": 1,
+    "video_fps": 10.0,
+    "video_duration_sec": 60.0,
+    "processing_time_sec": 157.064,
+    "processing_fps": 3.82,
+    "segment_duration_sec": 5.0
+  },
+  "scores": {
+    "nwRMSE": 0.3906,
+    "S1_Effectiveness": 0.6094,
+    "S1_Efficiency": 0.0,
+    "S1_Overall": 0.4266,
+    "efficiency_details": {
+      "mode": "aicity_approx",
+      "processing_time_sec": 157.064,
+      "efficiency_base": 0.0,
+      "adjusted_time_sec": 157.064,
+      "video_duration_sec": 60.0,
+      "adjusted_time_ratio": 2.6177333333333332,
+      "note": "Approximation; use the official AI City efficiency script for leaderboard numbers."
+    }
+  },
+  "counting": {
+    "gt_total": 96,
+    "pred_total": 118,
+    "total_abs_error": 22,
+    "false_positive_events_with_absent_gt_key": 40,
+    "total_count_accuracy": 0.7708,
+    "mae_per_movement_class": 4.6667,
+    "num_movement_class_pairs": 21,
+    "breakdown": [
+      {
+        "video_id": 10,
+        "movement_id": 1,
+        "class": "car",
+        "class_id": 1,
+        "gt_count": 1,
+        "pred_count": 2,
+        "abs_error": 1,
+        "relative_error": 1.0
+      },
+      {
+        "video_id": 10,
+        "movement_id": 1,
+        "class": "truck",
+        "class_id": 2,
+        "gt_count": 0,
+        "pred_count": 2,
+        "abs_error": 2,
+        "relative_error": 2.0
+      },
+      {
+        "video_id": 10,
+        "movement_id": 2,
+        "class": "car",
+        "class_id": 1,
+        "gt_count": 5,
+        "pred_count": 1,
+        "abs_error": 4,
+        "relative_error": 0.8
+      },
+      {
+        "video_id": 10,
+        "movement_id": 3,
+        "class": "car",
+        "class_id": 1,
+        "gt_count": 13,
+        "pred_count": 15,
+        "abs_error": 2,
+        "relative_error": 0.1538
+      },
+      {
+        "video_id": 10,
+        "movement_id": 3,
+        "class": "truck",
+        "class_id": 2,
+        "gt_count": 0,
+        "pred_count": 1,
+        "abs_error": 1,
+        "relative_error": 1.0
+      },
+      {
+        "video_id": 10,
+        "movement_id": 4,
+        "class": "car",
+        "class_id": 1,
+        "gt_count": 10,
+        "pred_count": 10,
+        "abs_error": 0,
+        "relative_error": 0.0
+      },
+      {
+        "video_id": 10,
+        "movement_id": 4,
+        "class": "truck",
+        "class_id": 2,
+        "gt_count": 0,
+        "pred_count": 4,
+        "abs_error": 4,
+        "relative_error": 4.0
+      },
+      {
+        "video_id": 10,
+        "movement_id": 5,
+        "class": "car",
+        "class_id": 1,
+        "gt_count": 23,
+        "pred_count": 13,
+        "abs_error": 10,
+        "relative_error": 0.4348
+      },
+      {
+        "video_id": 10,
+        "movement_id": 5,
+        "class": "truck",
+        "class_id": 2,
+        "gt_count": 2,
+        "pred_count": 4,
+        "abs_error": 2,
+        "relative_error": 1.0
+      },
+      {
+        "video_id": 10,
+        "movement_id": 6,
+        "class": "car",
+        "class_id": 1,
+        "gt_count": 0,
+        "pred_count": 18,
+        "abs_error": 18,
+        "relative_error": 18.0
+      },
+      {
+        "video_id": 10,
+        "movement_id": 6,
+        "class": "truck",
+        "class_id": 2,
+        "gt_count": 0,
+        "pred_count": 9,
+        "abs_error": 9,
+        "relative_error": 9.0
+      },
+      {
+        "video_id": 10,
+        "movement_id": 7,
+        "class": "car",
+        "class_id": 1,
+        "gt_count": 1,
+        "pred_count": 4,
+        "abs_error": 3,
+        "relative_error": 3.0
+      },
+      {
+        "video_id": 10,
+        "movement_id": 7,
+        "class": "truck",
+        "class_id": 2,
+        "gt_count": 0,
+        "pred_count": 2,
+        "abs_error": 2,
+        "relative_error": 2.0
+      },
+      {
+        "video_id": 10,
+        "movement_id": 8,
+        "class": "car",
+        "class_id": 1,
+        "gt_count": 0,
+        "pred_count": 1,
+        "abs_error": 1,
+        "relative_error": 1.0
+      },
+      {
+        "video_id": 10,
+        "movement_id": 8,
+        "class": "truck",
+        "class_id": 2,
+        "gt_count": 0,
+        "pred_count": 1,
+        "abs_error": 1,
+        "relative_error": 1.0
+      },
+      {
+        "video_id": 10,
+        "movement_id": 10,
+        "class": "car",
+        "class_id": 1,
+        "gt_count": 2,
+        "pred_count": 12,
+        "abs_error": 10,
+        "relative_error": 5.0
+      },
+      {
+        "video_id": 10,
+        "movement_id": 10,
+        "class": "truck",
+        "class_id": 2,
+        "gt_count": 0,
+        "pred_count": 1,
+        "abs_error": 1,
+        "relative_error": 1.0
+      },
+      {
+        "video_id": 10,
+        "movement_id": 11,
+        "class": "car",
+        "class_id": 1,
+        "gt_count": 37,
+        "pred_count": 13,
+        "abs_error": 24,
+        "relative_error": 0.6486
+      },
+      {
+        "video_id": 10,
+        "movement_id": 11,
+        "class": "truck",
+        "class_id": 2,
+        "gt_count": 1,
+        "pred_count": 1,
+        "abs_error": 0,
+        "relative_error": 0.0
+      },
+      {
+        "video_id": 10,
+        "movement_id": 12,
+        "class": "car",
+        "class_id": 1,
+        "gt_count": 1,
+        "pred_count": 3,
+        "abs_error": 2,
+        "relative_error": 2.0
+      },
+      {
+        "video_id": 10,
+        "movement_id": 12,
+        "class": "truck",
+        "class_id": 2,
+        "gt_count": 0,
+        "pred_count": 1,
+        "abs_error": 1,
+        "relative_error": 1.0
+      }
+    ]
+  }
+}

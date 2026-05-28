@@ -59,13 +59,14 @@
           <h1>Đếm Xe <span class="gradient-text">Tự Động</span></h1>
           <p class="hero-subtitle">
             Chỉ cần upload video và weights — <strong>Grounded-SAM</strong> + <strong>SAM Bootstrap</strong>
-            tự phát hiện vùng đường (ROI) và hướng di chuyển (MOI) từ video, rồi đếm xe hoàn toàn tự động.
+            tự phát hiện vùng đường (ROI), sau đó sinh hướng di chuyển (MOI) từ trajectory và align về ID MOI chính thức khi có reference.
             Không cần vẽ hay cung cấp thêm file cấu hình.
           </p>
           <div class="hero-chips">
             <span>Grounded-DINO</span>
             <span>SAM Bootstrap</span>
-            <span>Auto ROI/MOI</span>
+            <span>Auto ROI</span>
+            <span>Track-Mined MOI</span>
             <span>YOLO Detection</span>
             <span>Kalman Tracking</span>
             <span>CSV Export</span>
@@ -148,7 +149,8 @@
           <div class="form-note" style="grid-column:1/-1;">
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="12" x2="12" y2="16"/></svg>
             <span>
-              SAM sẽ quét <strong>tối đa 600 frame</strong> đầu để xây dựng ROI và MOI, sau đó đếm xe theo số frame bạn cài dưới đây.
+              SAM/Grounded-SAM dùng để bootstrap ROI. MOI dùng để đếm sẽ được sinh từ trajectory bằng YOLO + tracking,
+              rồi align về ID MOI chính thức khi chạy bộ demo có reference.
               Model Grounded-DINO được tải từ Hugging Face lần đầu (cần internet); lần sau dùng cache.
             </span>
           </div>

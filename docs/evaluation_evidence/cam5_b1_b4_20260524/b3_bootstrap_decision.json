@@ -1,0 +1,13 @@
+{
+  "decision": "use_tracked_moi_fallback",
+  "reason": "SAM Automatic produced too few valid MOI vectors",
+  "bootstrap_quality": {
+    "status": "low_confidence",
+    "is_full_frame_fallback": false,
+    "valid_moi_count": 1,
+    "min_moi_count": 3,
+    "too_few_moi": true,
+    "note": "SAM road-mask scoring rejected likely vegetation; used color fallback."
+  },
+  "moi_fallback_path": "outputs\\final_cam5_b1_b4_20260524_v4\\b2_moi_from_tracks_aligned.txt"
+}

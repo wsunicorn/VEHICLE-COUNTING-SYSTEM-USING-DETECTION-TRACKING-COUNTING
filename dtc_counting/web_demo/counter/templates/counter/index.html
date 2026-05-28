@@ -308,7 +308,7 @@
       <section class="card">
         <div class="section-head">
           <h2>Chọn chế độ demo</h2>
-          <p>Chế độ thủ công dùng ROI/MOI chuẩn để demo ổn định nhất; chế độ tự động dùng Grounding-DINO/SAM để bootstrap ROI/MOI.</p>
+          <p>Chế độ thủ công dùng ROI/MOI chuẩn để demo ổn định nhất; chế độ tự động dùng Grounding-DINO/SAM để bootstrap ROI và sinh MOI từ trajectory đã align.</p>
         </div>
         <div class="mode-cards">
 
@@ -354,12 +354,12 @@
             </div>
             <p>
               Không cần cài đặt thủ công — chỉ cần video và weights.
-              <strong>Grounded-DINO</strong> xác định vùng đường, <strong>SAM Bootstrap</strong> tự phân tích quỹ đạo phương tiện
-              để sinh ROI và MOI, rồi đếm hoàn toàn tự động.
+              <strong>Grounded-DINO</strong> xác định vùng đường, <strong>SAM Bootstrap</strong> tạo ROI,
+              còn MOI được sinh từ trajectory và align về ID MOI chính thức khi có reference.
             </p>
             <ul class="mode-card-features">
               <li><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg> Tự sinh ROI (Segment Anything Model)</li>
-              <li><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg> Tự sinh MOI từ K-means phân tích quỹ đạo</li>
+              <li><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg> Sinh MOI từ trajectory và align ID bằng vector matching</li>
               <li><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg> Grounded-DINO với text prompt mô tả vùng đường</li>
               <li><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg> Tự fallback sang SAM thuần nếu lỗi mạng</li>
               <li><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg> Xem overlay ảnh ROI/MOI trước khi đếm</li>

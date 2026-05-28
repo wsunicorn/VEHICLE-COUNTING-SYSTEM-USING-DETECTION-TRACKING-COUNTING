@@ -20,6 +20,12 @@ from django.shortcuts import render
 
 from .forms import DemoForm, ManualForm, AutoForm
 
+DTC_ROOT = Path(__file__).resolve().parents[2]
+if str(DTC_ROOT) not in sys.path:
+    sys.path.insert(0, str(DTC_ROOT))
+
+from moi_utils import align_to_reference, load_moi_vectors, write_moi_vectors
+
 
 # ── Thread-safe run registry ───────────────────────────────────────────────────
 _RUN_REGISTRY: Dict[str, dict] = {}
@@ -205,6 +211,108 @@ def _infer_movement_count_from_file(path: str) -> int:
     return max(movement_ids) if movement_ids else 8
 
 
+def _build_track_mined_moi(
+    run_id: str,
+    *,
+    py: str,
+    dtc_dir: str,
+    out_dir: Path,
+    video_path: str,
+    weights_path: str,
+    roi_file: str,
+    movement_path: str,
+    movement_count_hint: int,
+    reference_moi_path: str,
+    data: dict,
+    label: str,
+) -> str:
+    """Build MOI from tracked trajectories and align IDs to reference MOI when available."""
+    if not roi_file or not os.path.exists(roi_file):
+        _reg_log(run_id, "  Bỏ qua track-mined MOI: chưa có ROI hợp lệ.")
+        return ""
+    if not movement_path or not os.path.exists(movement_path):
+        inferred_count = max(1, int(movement_count_hint or 8))
+        auto_movement = out_dir / "movement_auto_hint.txt"
+        with open(auto_movement, "w", encoding="utf-8") as f:
+            for mid in range(1, inferred_count + 1):
+                f.write(f"movement {mid}: auto-generated placeholder for MOI mining\n")
+        movement_path = str(auto_movement)
+        _reg_log(
+            run_id,
+            f"  Không có movement description; tạo hint tạm {inferred_count} movement để mine MOI.",
+        )
+
+    max_frames = int(data.get("max_frames") or 1200)
+    mining_frames = max(120, min(max_frames, 1200))
+    raw_moi = out_dir / "moi_from_tracks.txt"
+    aligned_moi = out_dir / "moi_from_tracks_aligned.txt"
+
+    _reg_log(
+        run_id,
+        f"→ Sinh MOI từ trajectory cho {label} ({mining_frames} frame, align về MOI chính thức nếu có)…",
+    )
+    cmd = [
+        py,
+        "build_moi_from_tracks.py",
+        "--video",
+        video_path,
+        "--weights",
+        weights_path,
+        "--roi-file",
+        roi_file,
+        "--movement-description",
+        movement_path,
+        "--output-moi",
+        str(raw_moi),
+        "--max-frames",
+        str(mining_frames),
+        "--imgsz",
+        str(data["imgsz"]),
+        "--conf",
+        str(data["conf"]),
+        "--class-conf",
+        data.get("class_conf", ""),
+    ]
+
+    try:
+        _popen_log(run_id, cmd, dtc_dir)
+    except Exception as exc:
+        _reg_log(run_id, f"  Track-mined MOI lỗi: {exc}")
+        return ""
+
+    selected_moi = raw_moi
+    aligned_count = 0
+    if reference_moi_path and os.path.exists(reference_moi_path):
+        try:
+            generated = load_moi_vectors(str(raw_moi))
+            reference = load_moi_vectors(reference_moi_path)
+            aligned = align_to_reference(generated, reference)
+            if aligned:
+                write_moi_vectors(str(aligned_moi), aligned)
+                selected_moi = aligned_moi
+                aligned_count = len(aligned)
+                _reg_log(run_id, f"  Đã align MOI theo ID chính thức: {aligned_moi.name} ({aligned_count} vectors).")
+        except Exception as exc:
+            _reg_log(run_id, f"  Không align được MOI theo reference, dùng MOI thô: {exc}")
+    else:
+        _reg_log(run_id, "  Không có reference MOI chính thức, dùng MOI từ trajectory theo thứ tự cụm.")
+
+    decision = {
+        "method": "track_mined_moi_aligned",
+        "label": label,
+        "mining_frames": mining_frames,
+        "raw_moi_path": str(raw_moi),
+        "selected_moi_path": str(selected_moi),
+        "reference_moi_path": reference_moi_path or "",
+        "aligned": selected_moi == aligned_moi,
+        "aligned_count": aligned_count,
+    }
+    with open(out_dir / "moi_mining_decision.json", "w", encoding="utf-8") as f:
+        json.dump(decision, f, ensure_ascii=False, indent=2)
+
+    return str(selected_moi)
+
+
 def _demo_paths(root_dir: Path) -> Dict[str, Path]:
     data_root = root_dir / "data" / "AIC21_Track1_Vehicle_Counting"
     return {
@@ -231,6 +339,7 @@ def _execute_run(
     py: str,
     raw_video_url: str,
     moi_count_hint: int = 0,
+    reference_moi_path: str = "",
 ) -> None:
     try:
         _reg_log(run_id, "✓ File đã lưu thành công.")
@@ -253,7 +362,7 @@ def _execute_run(
         # ── Bootstrap ROI/MOI ──────────────────────────────────────────────────
         if data["auto_bootstrap"]:
             _reg_step(run_id, "bootstrap", "running")
-            _reg_log(run_id, "→ Bắt đầu Bootstrap ROI/MOI…")
+            _reg_log(run_id, "→ Bắt đầu bootstrap ROI và sinh MOI từ trajectory…")
 
             b3_json = out_dir / "bootstrap_grounded_sam.json"
             b3_overlay = out_dir / "bootstrap_overlay.jpg"
@@ -358,74 +467,19 @@ def _execute_run(
                     payload_probe = json.load(f)
                 quality = payload_probe.get("quality", {})
 
-            # Validate MOI count. SAM Automatic only sees one frame, so if it
-            # finds too few directions, switch to trajectory bootstrap.
+            # Validate MOI count. The web demo now follows the B2/B3/B4
+            # comparison path: bootstrap provides ROI, while MOI is mined from
+            # tracked trajectories and aligned to official MOI IDs when a
+            # reference file is available.
             actual_moi = len(payload_probe.get("moi_vectors", {}))
-            few_sam_only_moi = bool(not use_grounding and 0 < actual_moi < 3)
             _reg_log(run_id, f"  Bootstrap tạo ra {actual_moi} MOI vectors.")
-            if few_sam_only_moi:
-                moi_rerun_frames = min(bootstrap_frames, 90)
-                expected_moi = moi_count if moi_count > 0 else 4
-                _reg_log(
-                    run_id,
-                    f"  SAM Automatic chỉ tạo {actual_moi} MOI -> re-run SAM trajectory ({moi_rerun_frames} frame, {expected_moi} clusters)..."
-                )
-                cmd_sam_moi = [
-                    py, "sam_bootstrap.py",
-                    "--video", video_path,
-                    "--weights", weights_path,
-                    "--output-json", str(b3_json),
-                    "--save-overlay", str(b3_overlay),
-                    "--moi-count", str(expected_moi),
-                    "--roi-expand", "1.03",
-                    "--roi-shape", "rect",
-                    "--imgsz", str(data["imgsz"]),
-                    "--conf", str(data["conf"]),
-                    "--max-frames", str(moi_rerun_frames),
-                ]
-                _popen_log(run_id, cmd_sam_moi, dtc_dir)
-                warn_moi = "SAM Automatic chỉ suy ra rất ít MOI, đã re-run SAM trajectory bootstrap để lấy hướng từ chuyển động xe."
-                bootstrap_warning = ((bootstrap_warning or "") + " " + warn_moi).strip()
-                with open(b3_json, "r", encoding="utf-8") as f:
-                    payload_probe = json.load(f)
-                actual_moi = len(payload_probe.get("moi_vectors", {}))
-                _reg_log(run_id, f"  Sau re-run MOI: {actual_moi} vectors.")
-                grounded_sam_ok = False
-            if grounded_sam_ok and actual_moi < 3:
+            if actual_moi < 3:
                 warn_few = (
-                    f"Grounded-SAM chỉ phát hiện được {actual_moi} hướng MOI từ 1 frame tĩnh. "
-                    "Nếu giao lộ có nhiều hướng hơn, hãy dùng chế độ Thủ Công để vẽ MOI hoặc upload file MOI."
+                    f"Bootstrap chỉ suy ra {actual_moi} MOI từ ảnh/mask. "
+                    "Web sẽ dùng MOI sinh từ trajectory và align về ID MOI chính thức nếu có reference."
                 )
                 bootstrap_warning = ((bootstrap_warning or "") + " " + warn_few).strip()
-                _reg_log(run_id, f"  ⚠ {warn_few}")
-            if actual_moi == 0:
-                moi_rerun_frames = min(bootstrap_frames, 120)
-                expected_moi = moi_count if moi_count > 0 else 8
-                _reg_log(run_id, f"  Không có MOI nào → re-run SAM trajectory ({moi_rerun_frames} frame, {expected_moi} clusters)…")
-                cmd_sam_moi = [
-                    py, "sam_bootstrap.py",
-                    "--video", video_path,
-                    "--weights", weights_path,
-                    "--output-json", str(b3_json),
-                    "--save-overlay", str(b3_overlay),
-                    "--moi-count", str(expected_moi),
-                    "--roi-expand", "1.03",
-                    "--roi-shape", "rect",
-                    "--imgsz", str(data["imgsz"]),
-                    "--conf", str(data["conf"]),
-                    "--max-frames", str(moi_rerun_frames),
-                ]
-                _popen_log(run_id, cmd_sam_moi, dtc_dir)
-                warn_moi = "Grounded-SAM không tạo được MOI, đã re-run SAM trajectory bootstrap."
-                bootstrap_warning = ((bootstrap_warning or "") + " " + warn_moi).strip()
-                with open(b3_json, "r", encoding="utf-8") as f:
-                    payload_probe = json.load(f)
-                actual_moi = len(payload_probe.get("moi_vectors", {}))
-                _reg_log(run_id, f"  Sau re-run MOI: {actual_moi} vectors.")
-                if actual_moi == 0:
-                    raise RuntimeError(
-                        "Bootstrap không sinh được MOI hợp lệ. Hãy chuyển sang chế độ thủ công hoặc upload file MOI."
-                    )
+                _reg_log(run_id, f"  {warn_few}")
 
             roi_txt = out_dir / "roi_from_bootstrap.txt"
             moi_txt = out_dir / "moi_from_bootstrap.txt"
@@ -444,9 +498,57 @@ def _execute_run(
                 roi_file = str(roi_txt)
             if not moi_vectors_path:
                 moi_vectors_path = str(moi_txt)
+
+            tracked_moi = _build_track_mined_moi(
+                run_id,
+                py=py,
+                dtc_dir=dtc_dir,
+                out_dir=out_dir,
+                video_path=video_path,
+                weights_path=weights_path,
+                roi_file=roi_file,
+                movement_path=movement_path,
+                movement_count_hint=moi_count,
+                reference_moi_path=reference_moi_path,
+                data=data,
+                label="Grounding DINO + SAM ROI" if use_grounding else "SAM Automatic ROI",
+            )
+            if tracked_moi:
+                moi_vectors_path = tracked_moi
+                bootstrap_warning = (
+                    (bootstrap_warning or "") + " "
+                    + "MOI dùng để đếm được sinh từ trajectory và align về ID chính thức khi có reference."
+                ).strip()
+            elif not os.path.exists(moi_vectors_path):
+                raise RuntimeError(
+                    "Không tạo được MOI hợp lệ từ bootstrap hoặc trajectory. "
+                    "Hãy dùng bộ demo, upload movement/MOI reference, hoặc chuyển sang chế độ thủ công."
+                )
             overlay_url = f"/media/{run_id}/bootstrap_overlay.jpg"
             _reg_step(run_id, "bootstrap", "done")
-            _reg_log(run_id, "✓ Bootstrap ROI/MOI hoàn thành.")
+            _reg_log(run_id, "✓ Bootstrap ROI + track-mined MOI hoàn thành.")
+
+        elif not moi_vectors_path and roi_file and movement_path:
+            tracked_moi = _build_track_mined_moi(
+                run_id,
+                py=py,
+                dtc_dir=dtc_dir,
+                out_dir=out_dir,
+                video_path=video_path,
+                weights_path=weights_path,
+                roi_file=roi_file,
+                movement_path=movement_path,
+                movement_count_hint=moi_count,
+                reference_moi_path=reference_moi_path,
+                data=data,
+                label="Manual ROI",
+            )
+            if tracked_moi:
+                moi_vectors_path = tracked_moi
+                bootstrap_warning = (
+                    "Không có MOI upload/vẽ; web đã dùng track-mined MOI "
+                    "và align về ID chính thức khi có reference."
+                )
 
         # ── Counting ───────────────────────────────────────────────────────────
         _reg_step(run_id, "count", "running")
@@ -637,6 +739,7 @@ def _launch_run(
     roi_file = ""
     movement_path = ""
     moi_vectors_path = ""
+    reference_moi_path = ""
     moi_count_hint = 0
     raw_video_url = ""
 
@@ -653,6 +756,8 @@ def _launch_run(
         video_path = str(demo["video"])
         weights_path = str(demo["weights"])
         movement_path = str(demo["movement"])
+        if demo["moi"].exists():
+            reference_moi_path = str(demo["moi"])
         if mode == "manual":
             roi_file = str(demo["roi"])
             moi_vectors_path = str(demo["moi"])
@@ -699,6 +804,7 @@ def _launch_run(
                 moi_count_hint = sum(1 for ln in open(moi_vectors_path, encoding="utf-8") if ln.strip())
             except Exception:
                 pass
+            reference_moi_path = moi_vectors_path
         elif (data.get("moi_json") or "").strip():
             # MOI drawn interactively on the canvas
             moi_data = json.loads(data["moi_json"])
@@ -708,6 +814,7 @@ def _launch_run(
                 for v in moi_data:
                     f.write(f"{v['id']},{v['x1']},{v['y1']},{v['x2']},{v['y2']}\n")
             moi_vectors_path = str(moi_txt)
+            reference_moi_path = moi_vectors_path
 
         raw_video_url = f"/media/{run_id}/uploads/{Path(video_path).name}"
         video_name = Path(data["video_upload"].name).name
@@ -731,7 +838,7 @@ def _launch_run(
         {"key": "transcode", "label": "Chuyển mã video", "state": "pending"},
     ]
     if data["auto_bootstrap"]:
-        steps.insert(1, {"key": "bootstrap", "label": "Bootstrap ROI/MOI (SAM)", "state": "pending"})
+        steps.insert(1, {"key": "bootstrap", "label": "Bootstrap ROI + sinh MOI từ trajectory", "state": "pending"})
 
     _reg_init(run_id, steps, mode=mode)
 
@@ -744,6 +851,7 @@ def _launch_run(
             roi_file, moi_vectors_path,
             dtc_dir, py, raw_video_url,
             moi_count_hint,
+            reference_moi_path,
         ),
         daemon=True,
     )

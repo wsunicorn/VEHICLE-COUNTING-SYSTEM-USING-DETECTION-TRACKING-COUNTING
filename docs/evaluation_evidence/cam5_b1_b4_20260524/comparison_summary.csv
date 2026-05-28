@@ -1,0 +1,5 @@
+baseline,label,gt_total,pred_total,nwRMSE,S1_Effectiveness,S1_Efficiency,S1_Overall,count_accuracy,mae
+b1,Manual ROI + Official MOI,96,95,0.2879,0.7121,0.0,0.4985,0.9896,3.3158
+b2,Manual ROI + Track-Mined MOI (aligned),96,95,0.435,0.565,0.0,0.3955,0.9896,5.3529
+b3,SAM Automatic ROI + Track-Mined MOI,96,118,0.3906,0.6094,0.0,0.4266,0.7708,4.6667
+b4,Grounding DINO + SAM ROI + Track-Mined MOI,96,125,0.4071,0.5929,0.0,0.415,0.6979,5.1053

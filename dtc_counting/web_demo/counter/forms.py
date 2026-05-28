@@ -43,7 +43,7 @@ class ManualForm(forms.Form):
 
 
 class AutoForm(forms.Form):
-    """Fully-automated counting: Grounded-SAM/SAM bootstrap generates ROI/MOI."""
+    """Fully-automated counting: SAM/Grounded-SAM bootstraps ROI, trajectories generate MOI."""
 
     use_demo_files  = forms.BooleanField(label="Dùng bộ demo cam_5 có sẵn", required=False, initial=True)
     video_upload    = forms.FileField(label="Video nguồn", required=False)

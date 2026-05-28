@@ -1,6 +1,8 @@
 # Vehicle Counting System Using Detection, Tracking, ROI and MOI
 
-Đây là tài liệu giải thích đầy đủ project đếm phương tiện giao thông của nhóm. Mục tiêu của README này không chỉ là hướng dẫn chạy code, mà còn giúp người đọc hiểu:
+Đây là README chính của project đếm phương tiện giao thông theo hướng di chuyển. Nội dung tập trung vào chính hệ thống trong repo: dữ liệu, mô hình, pipeline xử lý, web demo, cách chạy và cách kiểm chứng kết quả đánh giá.
+
+README này giúp người đọc hiểu:
 
 - **What**: hệ thống này là gì?
 - **Why**: vì sao phải thiết kế như vậy?
@@ -9,7 +11,7 @@
 - **Training**: YOLO được train/fine-tune như thế nào?
 - **Metrics**: hệ thống được đánh giá bằng công thức nào?
 - **Demo**: chạy CLI và web demo như thế nào?
-- **Presentation**: nên trình bày project này với người khác ra sao?
+- **Verification**: thầy/cô hoặc người chấm có thể kiểm chứng kết quả đánh giá ở đâu?
 
 ---
 
@@ -42,7 +44,7 @@ Các công nghệ chính:
 | Object Detection | YOLO / Ultralytics | Phát hiện xe hơi và xe tải |
 | Multi-object Tracking | Kalman Filter + Hungarian Matching | Nối detection thành quỹ đạo |
 | Counting | ROI/MOI vector matching | Gán hướng di chuyển và đếm |
-| Auto ROI/MOI | SAM, Grounding DINO + SAM | Hỗ trợ khởi tạo vùng đếm tự động |
+| Auto ROI + Track-Mined MOI | SAM, Grounding DINO + SAM, trajectory mining | Bootstrap ROI và sinh MOI từ quỹ đạo xe |
 | Evaluation | nwRMSE, S1 Effectiveness, MAE, Count Accuracy | Đánh giá kết quả |
 | Web Demo | Django | Giao diện demo và chạy pipeline |
 
@@ -53,6 +55,7 @@ Hiểu nhanh các thuật ngữ trong pipeline:
 - **Counting** là bước quyết định track nào được ghi nhận, ghi nhận tại frame nào và thuộc hướng nào.
 - **ROI** trả lời câu hỏi "đếm ở vùng nào?".
 - **MOI** trả lời câu hỏi "xe đi theo hướng nào?".
+- **Track-Mined MOI** là MOI được sinh từ trajectory của xe, sau đó align về ID MOI chính thức bằng matching vector.
 - **Metric** là công thức đánh giá kết quả, ví dụ đếm đúng tổng xe, đúng hướng, đúng loại xe và đúng theo thời gian.
 
 ---
@@ -754,15 +757,16 @@ Cách này kém chính xác hơn vì không biết hình học thực tế của
 
 ---
 
-## 10. Bootstrap ROI/MOI Bằng SAM
+## 10. Bootstrap ROI Và Sinh MOI Tự Động
 
 ROI/MOI có thể:
 
 - vẽ thủ công trên web,
 - đọc từ file `.txt`,
-- khởi tạo tự động bằng SAM/Grounding-SAM.
+- khởi tạo ROI tự động bằng SAM/Grounding-SAM,
+- sinh MOI từ trajectory của xe rồi align về ID MOI chính thức nếu có reference.
 
-**Bootstrap** nghĩa là khởi tạo cấu hình ban đầu một cách tự động hoặc bán tự động. Trong project này, bootstrap không thay thế hoàn toàn cấu hình thủ công; nó giúp giảm công vẽ ROI/MOI và tạo baseline tự động để so sánh.
+**Bootstrap** nghĩa là khởi tạo cấu hình ban đầu một cách tự động hoặc bán tự động. Trong project này, SAM/Grounding-SAM chủ yếu dùng để tìm ROI. MOI dùng cho B2/B3/B4 và web auto path được sinh từ trajectory bằng `build_moi_from_tracks.py`, sau đó align về ID chính thức bằng `moi_utils.align_to_reference()` khi có file MOI reference.
 
 **Segmentation** là bài toán phân đoạn ảnh theo vùng pixel. Khác với detection chỉ trả về bbox, segmentation trả về **mask**, tức vùng pixel thuộc đối tượng hoặc vùng quan tâm.
 
@@ -827,7 +831,7 @@ Nếu quality gate chưa đạt, hệ thống có thể dùng fallback.
 
 **Quality gate** là lớp kiểm tra chất lượng trước khi cho cấu hình tự động đi tiếp vào counting. Nó không làm SAM/Grounding DINO chính xác tuyệt đối, nhưng giúp tránh trường hợp một ROI sai rõ ràng lại được dùng để đánh giá định lượng.
 
-### 10.4 Track-mined MOI fallback
+### 10.4 Track-Mined MOI Và Align ID
 
 Script:
 
@@ -835,9 +839,9 @@ Script:
 dtc_counting/build_moi_from_tracks.py
 ```
 
-Ý tưởng: nếu SAM tạo ROI được nhưng MOI quá ít, dùng chính quỹ đạo xe để suy MOI.
+Ý tưởng: dùng chính quỹ đạo xe để suy hướng di chuyển. Đây là cách đang được dùng cho B2/B3/B4 và web auto path để đồng nhất với phần chạy baseline.
 
-**Fallback** là phương án dự phòng khi phương án chính chưa đủ tốt. Với B3/B4, SAM hoặc Grounding-SAM có thể tạo ROI nhưng không tạo đủ MOI. Khi đó, project chạy YOLO + tracker trên một đoạn video, lấy trajectory thật của xe rồi gom cụm để tạo MOI.
+Với B3/B4, SAM hoặc Grounding-SAM tạo ROI. Nếu bootstrap sinh MOI quá ít hoặc không ổn định, hệ thống không dùng MOI đó để đánh giá chính; thay vào đó, project chạy YOLO + tracker trên một đoạn video, lấy trajectory thật của xe rồi gom cụm để tạo MOI.
 
 Quy trình:
 
@@ -853,6 +857,7 @@ Trong đó:
 - **PCA** có thể dùng để tìm trục chính của vùng/mask hoặc cụm điểm.
 - **KMeans** gom các vector trajectory thành các nhóm hướng. Mỗi cụm có thể xem như một MOI ứng viên.
 - **Align ID** là bước sắp lại ID movement cho gần với MOI/reference, tránh cùng một hướng nhưng bị đặt ID khác.
+- File code thực hiện align: `dtc_counting/moi_utils.py`.
 
 Nhờ vậy, B3/B4 có thể đưa vào bảng định lượng:
 
@@ -1019,6 +1024,36 @@ Diễn giải:
 - B3 cho thấy SAM Automatic có thể tham gia baseline định lượng khi kết hợp quality gate và MOI fallback.
 - B4 cho thấy Grounding DINO + SAM có thể bootstrap ROI bằng prompt, nhưng vẫn cần hậu xử lý MOI.
 
+### 13.1 Cách Kiểm Chứng Kết Quả Đánh Giá
+
+Các file minh chứng đã được đưa lên GitHub tại:
+
+```text
+docs/evaluation_evidence/cam5_b1_b4_20260524/
+```
+
+Thư mục này chứa các file sinh trực tiếp từ lần chạy `final_cam5_b1_b4_20260524_v4`, gồm:
+
+- `comparison_summary.json` và `comparison_summary.csv`: bảng kết quả tổng hợp B1-B4.
+- `b1_eval.json`, `b2_eval.json`, `b3_eval.json`, `b4_eval.json`: metric chi tiết từng baseline.
+- `b1_manual_official_moi.csv`, `b2_manual_tracked_moi.csv`, `b3_sam_auto.csv`, `b4_grounded_sam.csv`: CSV prediction dùng để tính metric.
+- `b2_moi_from_tracks.txt` và `b2_moi_from_tracks_aligned.txt`: MOI sinh từ trajectory và MOI sau khi align ID.
+- `b3_bootstrap_decision.json`, `b4_bootstrap_decision.json`: minh chứng B3/B4 dùng track-mined MOI khi bootstrap sinh quá ít MOI hợp lệ.
+- `run_stdout.log`: log console của lần chạy, có progress, số event và metric in ra.
+
+README riêng trong thư mục evidence ghi rõ:
+
+- file code nào sinh ra kết quả,
+- lệnh chạy lại B1-B4 bằng `run_full_comparison.py`,
+- lệnh đánh giá riêng từng baseline bằng `evaluate_counting.py`,
+- file nào được commit và file nào không commit vì quá nặng.
+
+Để kiểm chứng nhanh, mở:
+
+```text
+docs/evaluation_evidence/cam5_b1_b4_20260524/README.md
+```
+
 ---
 
 ## 14. Web Demo Django
@@ -1073,7 +1108,8 @@ Phù hợp để trình bày phần tự động hóa:
 
 - upload video,
 - chọn SAM Automatic hoặc Grounding DINO + SAM,
-- hệ thống bootstrap ROI/MOI,
+- hệ thống bootstrap ROI bằng SAM/Grounding-SAM,
+- hệ thống sinh MOI từ trajectory và align về ID MOI chính thức khi có reference,
 - quality gate kiểm tra chất lượng,
 - fallback khi MOI quá ít hoặc ROI chưa tốt.
 
@@ -1180,9 +1216,12 @@ Project/
 +-- docs/
 |   +-- Nhom19_paper_ComputerVision.docx
 |   +-- workflow_diagram.png
+|   +-- evaluation_evidence/
+|       +-- cam5_b1_b4_20260524/
 +-- weights/
 |   +-- best.pt
 |   +-- best2.pt
+|   +-- best4.pt
 +-- dtc_counting/
     +-- run_dtc_counting.py
     +-- run_full_comparison.py
@@ -1218,6 +1257,7 @@ File quan trọng:
 | `grounded_sam_bootstrap.py` | ROI bootstrap bằng Grounding DINO + SAM |
 | `sam_bootstrap.py` | Trajectory-guided SAM fallback |
 | `web_demo/counter/views.py` | Điều phối web demo và background run |
+| `docs/evaluation_evidence/cam5_b1_b4_20260524/` | File minh chứng để kiểm chứng kết quả đánh giá |
 
 Cách các script liên kết với nhau:
 
@@ -1285,4 +1325,4 @@ Các file lớn được ignore:
 - `dtc_counting/sam_b.pt`
 - database local Django
 
-Repo chỉ nên commit code, README, paper, workflow diagram và các file cấu hình/CSV mẫu nhỏ.
+Repo hiện commit code, README, paper, workflow diagram, weights YOLO nhỏ cần cho demo, và các file evidence nhỏ trong `docs/evaluation_evidence/`. Các video/output/media lớn vẫn nên để ngoài Git.

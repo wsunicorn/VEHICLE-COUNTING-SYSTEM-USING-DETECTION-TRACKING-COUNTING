@@ -1,16 +1,14 @@
-﻿# Vehicle Counting System Using Detection, Tracking and Counting
+# Vehicle Counting System Using Detection, Tracking, ROI and MOI
 
-Project xây dựng hệ thống đếm phương tiện giao thông theo **loại xe** và **hướng di chuyển** từ video camera cố định.
+Project xây dựng hệ thống đếm phương tiện giao thông từ video camera cố định. Hệ thống không chỉ đếm tổng số xe, mà còn đếm theo **loại xe** và **hướng di chuyển**.
 
-Đầu ra chính là file CSV theo dạng:
+Đầu ra chính là CSV:
 
 ```csv
 video_clip_id,frame_id,movement_id,vehicle_class_id
 10,145,3,1
 10,302,7,2
 ```
-
-Trong đó:
 
 | Trường | Ý nghĩa |
 |---|---|
@@ -21,12 +19,26 @@ Trong đó:
 
 ---
 
-## Pipeline Chính
+## Mục Tiêu Và Ý Nghĩa
+
+Bài toán của project là **vehicle turning-movement counting**: đếm xe theo từng luồng di chuyển trong giao lộ. Nếu chỉ dùng object detection, một xe xuất hiện trong nhiều frame sẽ bị đếm nhiều lần. Vì vậy hệ thống cần kết hợp detection, tracking, ROI/MOI và đánh giá định lượng.
+
+Ý nghĩa của hệ thống:
+
+- thống kê lưu lượng xe theo hướng đi,
+- hỗ trợ phân tích giao thông đô thị,
+- tạo web demo để trình bày pipeline computer vision,
+- thử nghiệm khả năng giảm công cấu hình ROI/MOI bằng SAM và trajectory mining,
+- có minh chứng đánh giá để người khác kiểm chứng kết quả.
+
+---
+
+## Phương Pháp Tổng Quan
 
 ```text
 Video
   -> YOLO vehicle detection
-  -> Kalman + Hungarian tracking
+  -> Kalman + Hungarian multi-object tracking
   -> ROI/MOI movement assignment
   -> Counting CSV + overlay video
   -> Evaluation metrics
@@ -36,18 +48,51 @@ Các thành phần chính:
 
 | Thành phần | File chính | Vai trò |
 |---|---|---|
-| Detection | `dtc_counting/run_dtc_counting.py` | Dùng YOLO phát hiện `car/truck` trong từng frame |
-| Tracking | `MultiStepTracker` trong `run_dtc_counting.py` | Nối detection qua nhiều frame thành trajectory |
-| Counting | `run_dtc_counting.py` | Gán track vào ROI/MOI và ghi counting event |
-| MOI mining | `dtc_counting/build_moi_from_tracks.py` | Sinh MOI từ trajectory |
-| MOI alignment | `dtc_counting/moi_utils.py` | Align MOI sinh ra về ID MOI chính thức |
+| Detection | `dtc_counting/run_dtc_counting.py` | Dùng YOLO phát hiện `car/truck` |
+| Tracking | `MultiStepTracker` trong `run_dtc_counting.py` | Nối detection thành trajectory |
+| Counting | `run_dtc_counting.py` | Gán track vào ROI/MOI và ghi event |
+| MOI mining | `build_moi_from_tracks.py` | Sinh MOI từ trajectory |
+| MOI alignment | `moi_utils.py` | Align MOI sinh ra về ID MOI chính thức |
 | SAM bootstrap | `sam_auto_bootstrap.py`, `grounded_sam_bootstrap.py` | Bootstrap ROI tự động |
-| Evaluation | `dtc_counting/evaluate_counting.py` | Tính metric đánh giá |
+| Evaluation | `evaluate_counting.py` | Tính metric đánh giá |
 | Web demo | `dtc_counting/web_demo/` | Giao diện chạy thử hệ thống |
+
+### Detection Bằng YOLO
+
+YOLO nhận từng frame và trả về bounding box, class, confidence của xe. Project tập trung hai class:
+
+- `car`
+- `truck`
+
+Detector được fine-tune từ dữ liệu frame giao thông đã gán nhãn. Khi chạy đếm, hệ thống có thể dùng ngưỡng riêng theo class, ví dụ:
+
+```text
+car=0.25,truck=0.75
+```
+
+### Tracking Bằng Kalman + Hungarian
+
+Tracker dùng Kalman Filter để dự đoán vị trí tiếp theo của xe và Hungarian Matching để ghép detection mới với track cũ. Matching kết hợp:
+
+- IoU giữa bounding box,
+- Mahalanobis distance từ Kalman Filter,
+- histogram màu để giảm mất ID khi xe gần nhau.
+
+Kết quả của tracking là trajectory, tức chuỗi vị trí của cùng một xe qua nhiều frame.
+
+### Counting Bằng ROI/MOI
+
+ROI là vùng cần đếm. MOI là vector hướng di chuyển. Một track được đếm khi đủ điều kiện như đã vào ROI, có quỹ đạo đủ dài và chưa bị đếm trước đó.
+
+Movement ID được gán bằng cách so sánh vector trajectory với các vector MOI. MOI có hướng và vị trí phù hợp nhất sẽ được chọn.
+
+### Auto ROI Và Track-Mined MOI
+
+Các nhánh tự động dùng SAM hoặc Grounding DINO + SAM để bootstrap ROI. MOI dùng trong B2/B3/B4 và web auto path được sinh từ trajectory bằng `build_moi_from_tracks.py`, sau đó align về ID chính thức bằng `moi_utils.py` nếu có file MOI reference.
 
 ---
 
-## Dữ Liệu Và Model
+## Dữ Liệu Và Huấn Luyện
 
 Dữ liệu mẫu nhỏ dùng trong repo:
 
@@ -59,7 +104,15 @@ dtc_counting/data/AIC21_Track1_Vehicle_Counting/
 └── counting_gt_sample/counting_example_cam_5_1min.csv
 ```
 
-Weights YOLO:
+Quy trình tạo detector:
+
+```text
+Video -> extract frames -> Roboflow annotation -> YOLO dataset -> fine-tune YOLO -> weights/*.pt
+```
+
+Roboflow được dùng để quản lý ảnh, vẽ bounding box cho `car/truck`, chia train/validation và export dataset theo format YOLO.
+
+Weights YOLO trong repo:
 
 ```text
 weights/best.pt
@@ -73,6 +126,34 @@ File lớn không commit:
 - output video,
 - media web demo,
 - SAM checkpoint `dtc_counting/sam_b.pt`.
+
+---
+
+## Paper Và Nghiên Cứu Tham Khảo
+
+Paper của nhóm nằm tại:
+
+```text
+docs/Nhom19_paper_ComputerVision.docx
+```
+
+Sơ đồ hệ thống:
+
+```text
+docs/workflow_diagram.png
+```
+
+Project tham khảo hướng bài toán và metric từ **AI City Challenge Track 1 - Vehicle Counting**. Một số hướng nghiên cứu liên quan trong paper:
+
+| Nghiên cứu/hướng | Ý nghĩa với project |
+|---|---|
+| AI City Challenge Track 1 | Bối cảnh bài toán đếm xe theo movement/class |
+| CenterTrack-based counting | Nhấn mạnh vai trò tracking ổn định trong vehicle counting |
+| Fast Vehicle Turning-Movement Counting Using Localization-Based Tracking | Gợi ý hướng dùng tracking/localization nhẹ để tăng tốc |
+| Tiny-PIRATE / các hệ thống AI City Track 1 | Cho thấy ROI/MOI và tối ưu pipeline ảnh hưởng lớn đến điểm cuối |
+| SAM / Grounding DINO + SAM | Hướng hỗ trợ bootstrap ROI để giảm cấu hình thủ công |
+
+Hệ thống hiện tại không nhằm vượt leaderboard, mà tập trung xây dựng pipeline đầy đủ, có web demo, có baseline B1-B4 và có evidence để kiểm chứng kết quả.
 
 ---
 
@@ -142,12 +223,12 @@ dtc_counting/run_full_comparison.py
 
 Các baseline:
 
-| Baseline | Cấu hình |
-|---|---|
-| B1 | Manual ROI + Official MOI |
-| B2 | Manual ROI + Track-Mined MOI aligned |
-| B3 | SAM Automatic ROI + Track-Mined MOI aligned |
-| B4 | Grounding DINO + SAM ROI + Track-Mined MOI aligned |
+| Baseline | Cấu hình | Mục đích |
+|---|---|---|
+| B1 | Manual ROI + Official MOI | Mốc tham chiếu khi ROI/MOI đúng |
+| B2 | Manual ROI + Track-Mined MOI aligned | Kiểm tra MOI sinh từ trajectory |
+| B3 | SAM Automatic ROI + Track-Mined MOI aligned | Kiểm tra ROI tự động từ SAM |
+| B4 | Grounding DINO + SAM ROI + Track-Mined MOI aligned | Kiểm tra ROI tự động có prompt ngôn ngữ |
 
 Lệnh chạy:
 
@@ -174,7 +255,7 @@ python run_full_comparison.py `
 
 ---
 
-## Kết Quả Hiện Tại
+## Đánh Giá
 
 Kết quả mẫu trên cam 5:
 
@@ -191,13 +272,19 @@ docs/evaluation_evidence/cam5_b1_b4_20260524/comparison_summary.json
 
 Metric chính:
 
-| Metric | Ý nghĩa ngắn |
+| Metric | Ý nghĩa |
 |---|---|
 | `nwRMSE` | Sai số đếm tích lũy đã chuẩn hóa, càng thấp càng tốt |
-| `S1_Effectiveness` | Chất lượng đếm, càng cao càng tốt |
+| `S1_Effectiveness` | Chất lượng đếm theo movement/class, càng cao càng tốt |
 | `S1_Overall` | Điểm tổng hợp theo hướng AI City |
 | `Count Accuracy` | Độ đúng tổng số xe |
 | `MAE` | Sai số trung bình theo movement/class |
+
+Nhận xét ngắn:
+
+- B1 tốt nhất vì dùng ROI/MOI chính thức.
+- B2 cho thấy MOI có thể được sinh từ trajectory nhưng vẫn kém MOI chuẩn.
+- B3/B4 đưa SAM/Grounding-SAM vào định lượng bằng cách dùng ROI bootstrap và MOI sinh từ trajectory.
 
 ---
 
